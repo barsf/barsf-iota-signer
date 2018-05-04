@@ -40,7 +40,7 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
 		Dimension size = WebcamResolution.HD.getSize();
 
 		webcam = Webcam.getDefault();
-        System.out.println("Device -> ");
+        // System.out.println("Device -> ");
 		webcam.setViewSize(size);
 
 
@@ -56,7 +56,7 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
 		add(textarea);
 
 		pack();
-		setVisible(true);
+		setVisible(false);
 	}
 
     public String scan(){
@@ -71,7 +71,7 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
 			if (webcam.isOpen()) {
 
 				if ((image = webcam.getImage()) == null) {
-					System.out.println("webcam.getImage() == null");
+					// System.out.println("webcam.getImage() == null");
 					retry_cnt--;
 					continue;
 				}

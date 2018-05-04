@@ -68,7 +68,7 @@ public class WebcamDiscoveryService implements Runnable {
 	private static List<Webcam> toWebcams(List<WebcamDevice> devices) {
 		List<Webcam> webcams = new ArrayList<Webcam>();
 		for (WebcamDevice device : devices) {
-			System.out.println("Discovery device : " + device.getName());
+			// System.out.println("Discovery device : " + device.getName());
 			webcams.add(new Webcam(device));
 		}
 		return webcams;

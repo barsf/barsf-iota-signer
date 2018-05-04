@@ -589,7 +589,7 @@ public class Webcam {
 
 		Dimension[] predefined = getViewSizes();
 		Dimension[] custom = getCustomViewSizes();
-		System.out.println("Device Real Class -> " + device.getClass().getSimpleName());
+		// System.out.println("Device Real Class -> " + device.getClass().getSimpleName());
 		assert predefined != null;
 		assert custom != null;
 
@@ -619,7 +619,7 @@ public class Webcam {
 			for (Dimension d : custom) {
 				sb.append("custom-[").append(d.width).append("x").append(d.height).append("] ");
 			}
-			System.out.println("Supported Resolution : " + sb.toString());
+			// System.out.println("Supported Resolution : " + sb.toString());
 			throw new IllegalArgumentException(sb.toString());
 		}
 
@@ -895,7 +895,7 @@ public class Webcam {
 		if (!discovery.isRunning()) {
 			discovery.start();
 		}
-		System.out.println("WebCams Count : " + webcams.size());
+		// System.out.println("WebCams Count : " + webcams.size());
 		return webcams;
 	}
 
@@ -1142,7 +1142,7 @@ public class Webcam {
 		if (clazzName == null) {
 			throw new IllegalArgumentException("Webcam driver class name to register cannot be null!");
 		}
-		System.out.println("Reg Driver : " + clazzName);
+		// System.out.println("Reg Driver : " + clazzName);
 		DRIVERS_LIST.add(clazzName);
 	}
 

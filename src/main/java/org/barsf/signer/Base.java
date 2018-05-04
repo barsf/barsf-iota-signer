@@ -5,6 +5,8 @@ import org.barsf.screen.main.Screen;
 
 public abstract class Base {
 
+    private static final int SLEEP_INTERVAL = 100;
+
     // version should always consist with two numeric only
     protected String version = "00";
     protected Screen screen;
@@ -22,6 +24,13 @@ public abstract class Base {
         isResponseCompleteRec = true;
         previousMessSent = null;
         response = null;
+    }
+
+    public void sleep() {
+        try {
+            Thread.sleep(SLEEP_INTERVAL);
+        } catch (Exception e) {
+        }
     }
 
 }

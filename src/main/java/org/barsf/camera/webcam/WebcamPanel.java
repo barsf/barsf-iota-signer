@@ -517,10 +517,10 @@ public class WebcamPanel extends JPanel implements WebcamListener, PropertyChang
 						// frequency
 
 						if (isFPSLimited()) {
-							System.out.println("ZLB1 -> " + isFPSLimited());
+							// System.out.println("ZLB1 -> " + isFPSLimited());
 							executor.scheduleAtFixedRate(updater, 0, (long) (1000 / frequency), TimeUnit.MILLISECONDS);
 						} else {
-							System.out.println("ZLB2 -> " + isFPSLimited());
+							// System.out.println("ZLB2 -> " + isFPSLimited());
 							executor.scheduleWithFixedDelay(updater, 100, 1, TimeUnit.MILLISECONDS);
 						}
 					} else {

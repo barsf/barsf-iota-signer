@@ -47,7 +47,7 @@ public class Screen {
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("YOU Clicked button!");
+                // System.out.println("YOU Clicked button!");
                 long ms = System.currentTimeMillis();
                 try {
                     display(getRandomString());
@@ -66,9 +66,9 @@ public class Screen {
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
         //Display the window fullscreen
-        GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().setFullScreenWindow(frame);
-        int screenWidth=((int) Toolkit.getDefaultToolkit().getScreenSize().width);
-        int screenHeight = ((int) Toolkit.getDefaultToolkit().getScreenSize().height);
+        // GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().setFullScreenWindow(frame);
+        int screenWidth=((int) Toolkit.getDefaultToolkit().getScreenSize().width * 80 / 100);
+        int screenHeight = ((int) Toolkit.getDefaultToolkit().getScreenSize().height * 80 / 100);
         imageSize = screenWidth > screenHeight ? screenHeight : screenWidth;
     }
 
