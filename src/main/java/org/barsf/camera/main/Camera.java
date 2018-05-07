@@ -19,105 +19,103 @@ import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 
 public class Camera extends JFrame {// implements Runnable, ThreadFactory
 
-	private static final long serialVersionUID = 6441489157408381878L;
+    private static final long serialVersionUID = 6441489157408381878L;
 
 
-	private static Webcam webcam = null;
-	private static WebcamPanel panel = null;
-	private static JTextArea textarea = null;
-	private static String result = null;
-	public void DrawSth(String a){
-		textarea.setText(a);
-	}
-	public Camera() {
+    private static Webcam webcam = null;
+    private static WebcamPanel panel = null;
+    private static JTextArea textarea = null;
+    private static String result = null;
+    public void DrawSth(String a){
+        textarea.setText(a);
+    }
+    public Camera() {
 
-		super();
-		System.setProperty("apple.eawt.quitStrategy", "CLOSE_ALL_WINDOWS");
-		setLayout(new FlowLayout());
-		setTitle("Read QR / Bar Code With Webcam");
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        super();
+        System.setProperty("apple.eawt.quitStrategy", "CLOSE_ALL_WINDOWS");
+        setLayout(new FlowLayout());
+        setTitle("Read QR / Bar Code With Webcam");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		Dimension size = WebcamResolution.HD.getSize();
+        Dimension size = WebcamResolution.HD.getSize();
 
-		webcam = Webcam.getDefault();
+        webcam = Webcam.getDefault();
         // System.out.println("Device -> ");
-		webcam.setViewSize(size);
+        webcam.setViewSize(size);
 
 
-		panel = new WebcamPanel(webcam);
-		panel.setPreferredSize(size);
-		panel.setFPSDisplayed(true);
+        panel = new WebcamPanel(webcam);
+        panel.setPreferredSize(size);
+        panel.setFPSDisplayed(true);
 
-		textarea = new JTextArea();
-		textarea.setEditable(false);
-		textarea.setPreferredSize(size);
+        textarea = new JTextArea();
+        textarea.setEditable(false);
+        textarea.setPreferredSize(size);
 
-		add(panel);
-		add(textarea);
+        add(panel);
+        add(textarea);
 
-		pack();
-		setVisible(false);
-	}
+        pack();
+        setVisible(false);
+    }
 
     public String scan(){
 
         String result = null;
         BufferedImage image = null;
-		int retry_cnt = 10;
-		do{
-			if(retry_cnt < 0){
-				break;
-			}
-			if (webcam.isOpen()) {
+        int retry_cnt = 10;
+        do{
+            if(retry_cnt-- < 0){
+                break;
+            }
+            if (webcam.isOpen()) {
+                if ((image = webcam.getImage()) == null) {
+                    // System.out.println("webcam.getImage() == null");
+                    continue;
+                }
 
-				if ((image = webcam.getImage()) == null) {
-					// System.out.println("webcam.getImage() == null");
-					retry_cnt--;
-					continue;
-				}
+                LuminanceSource source = new BufferedImageLuminanceSource(image);
+                //BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+                BinaryBitmap bitmap = new BinaryBitmap(new GlobalHistogramBinarizer(source));
+                int h = bitmap.getHeight();
+                int w = bitmap.getWidth();
+                int crop = (w-h)/2;
+                bitmap = bitmap.crop(crop, 0, w - crop, h);
 
-				LuminanceSource source = new BufferedImageLuminanceSource(image);
-				//BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-				BinaryBitmap bitmap = new BinaryBitmap(new GlobalHistogramBinarizer(source));
-				int h = bitmap.getHeight();
-				int w = bitmap.getWidth();
-				int crop = (w-h)/2;
-				bitmap = bitmap.crop(crop, 0, w - crop, h);
+                try {
+                    Result r = new MultiFormatReader().decode(bitmap);
+                    if(r != null)
+                        result = r.getText();
 
-				try {
-					Result r = new MultiFormatReader().decode(bitmap);
-					if(r != null)
-						result = r.getText();
+                } catch (NotFoundException e) {
+                    // fall thru, it means there is no QR code in image
+                }
+            }else{
+                webcam.close();
+                panel.stop();
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                panel.start();
+                break;
+            }
 
-				} catch (NotFoundException e) {
-					// fall thru, it means there is no QR code in image
-				}
-			}else{
-				webcam.close();
-				panel.stop();
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				panel.start();
-				break;
-			}
-
-		}while(result == null);
+        }while(result == null);
 
         return result;
 
     }
     public void destroy(){
-		if (webcam.isOpen()) {
-			panel.stop();
-		}
-	}
-	public void reinit(){
-    	if(panel.isStarting() || panel.isStarted()){
-    		panel.stop();
-		}
-		panel.start();
-	}
+        if (webcam.isOpen()) {
+            panel.stop();
+        }
+    }
+    public void reinit(){
+        if(panel.isStarting() || panel.isStarted()){
+            panel.stop();
+        }
+        panel.start();
+    }
 }
