@@ -1,21 +1,20 @@
 package org.barsf.camera.ds.buildin;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-
+import org.barsf.camera.ds.buildin.natives.Device;
+import org.barsf.camera.ds.buildin.natives.DeviceList;
+import org.barsf.camera.ds.buildin.natives.OpenIMAJGrabber;
+import org.barsf.camera.webcam.WebcamDevice;
 import org.barsf.camera.webcam.WebcamDiscoverySupport;
+import org.barsf.camera.webcam.WebcamDriver;
 import org.barsf.camera.webcam.WebcamTask;
 import org.bridj.Pointer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.barsf.camera.webcam.WebcamDevice;
-import org.barsf.camera.webcam.WebcamDriver;
-import org.barsf.camera.ds.buildin.natives.Device;
-import org.barsf.camera.ds.buildin.natives.DeviceList;
-import org.barsf.camera.ds.buildin.natives.OpenIMAJGrabber;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 /**
@@ -26,124 +25,123 @@ import org.barsf.camera.ds.buildin.natives.OpenIMAJGrabber;
  */
 public class WebcamDefaultDriver implements WebcamDriver, WebcamDiscoverySupport {
 
-	static {
-		if (!"true".equals(System.getProperty("webcam.debug"))) {
-			System.setProperty("bridj.quiet", "true");
-		}
-	}
+    /**
+     * Logger.
+     */
+    private static final Logger LOG = LoggerFactory.getLogger(WebcamDefaultDriver.class);
+    private static OpenIMAJGrabber grabber = null;
 
-	private static class WebcamNewGrabberTask extends WebcamTask {
+    static {
+        if (!"true".equals(System.getProperty("webcam.debug"))) {
+            System.setProperty("bridj.quiet", "true");
+        }
+    }
 
-		private AtomicReference<OpenIMAJGrabber> grabber = new AtomicReference<OpenIMAJGrabber>();
+    @Override
+    public List<WebcamDevice> getDevices() {
 
-		public WebcamNewGrabberTask(WebcamDriver driver) {
-			super(driver, null);
-		}
+        LOG.debug("Searching devices");
 
-		public OpenIMAJGrabber newGrabber() {
-			try {
-				process();
-			} catch (InterruptedException e) {
-				LOG.error("Processor has been interrupted");
-				return null;
-			}
-			return grabber.get();
-		}
+        if (grabber == null) {
 
-		@Override
-		protected void handle() {
-			grabber.set(new OpenIMAJGrabber());
-		}
-	}
+            WebcamNewGrabberTask task = new WebcamNewGrabberTask(this);
+            grabber = task.newGrabber();
 
-	private static class GetDevicesTask extends WebcamTask {
+            if (grabber == null) {
+                return Collections.emptyList();
+            }
+        }
 
-		private volatile List<WebcamDevice> devices = null;
-		private volatile OpenIMAJGrabber grabber = null;
+        List<WebcamDevice> devices = new GetDevicesTask(this).getDevices(grabber);
 
-		public GetDevicesTask(WebcamDriver driver) {
-			super(driver, null);
-		}
+        if (LOG.isDebugEnabled()) {
+            for (WebcamDevice device : devices) {
+                LOG.debug("Found device {}", device.getName());
+            }
+        }
 
-		/**
-		 * Return camera devices.
-		 *
-		 * @param grabber the native grabber to use for search
-		 * @return Camera devices.
-		 */
-		public List<WebcamDevice> getDevices(OpenIMAJGrabber grabber) {
+        return devices;
+    }
 
-			this.grabber = grabber;
+    @Override
+    public long getScanInterval() {
+        return DEFAULT_SCAN_INTERVAL;
+    }
 
-			try {
-				process();
-			} catch (InterruptedException e) {
-				LOG.error("Processor has been interrupted");
-				return Collections.emptyList();
-			}
+    @Override
+    public boolean isScanPossible() {
+        return true;
+    }
 
-			return devices;
-		}
+    @Override
+    public boolean isThreadSafe() {
+        return false;
+    }
 
-		@Override
-		protected void handle() {
+    private static class WebcamNewGrabberTask extends WebcamTask {
 
-			devices = new ArrayList<WebcamDevice>();
+        private AtomicReference<OpenIMAJGrabber> grabber = new AtomicReference<OpenIMAJGrabber>();
 
-			Pointer<DeviceList> pointer = grabber.getVideoDevices();
-			DeviceList list = pointer.get();
+        public WebcamNewGrabberTask(WebcamDriver driver) {
+            super(driver, null);
+        }
 
-			for (Device device : list.asArrayList()) {
-				devices.add(new WebcamDefaultDevice(device));
-			}
-		}
-	}
+        public OpenIMAJGrabber newGrabber() {
+            try {
+                process();
+            } catch (InterruptedException e) {
+                LOG.error("Processor has been interrupted");
+                return null;
+            }
+            return grabber.get();
+        }
 
-	/**
-	 * Logger.
-	 */
-	private static final Logger LOG = LoggerFactory.getLogger(WebcamDefaultDriver.class);
+        @Override
+        protected void handle() {
+            grabber.set(new OpenIMAJGrabber());
+        }
+    }
 
-	private static OpenIMAJGrabber grabber = null;
+    private static class GetDevicesTask extends WebcamTask {
 
-	@Override
-	public List<WebcamDevice> getDevices() {
+        private volatile List<WebcamDevice> devices = null;
+        private volatile OpenIMAJGrabber grabber = null;
 
-		LOG.debug("Searching devices");
+        public GetDevicesTask(WebcamDriver driver) {
+            super(driver, null);
+        }
 
-		if (grabber == null) {
+        /**
+         * Return camera devices.
+         *
+         * @param grabber the native grabber to use for search
+         * @return Camera devices.
+         */
+        public List<WebcamDevice> getDevices(OpenIMAJGrabber grabber) {
 
-			WebcamNewGrabberTask task = new WebcamNewGrabberTask(this);
-			grabber = task.newGrabber();
+            this.grabber = grabber;
 
-			if (grabber == null) {
-				return Collections.emptyList();
-			}
-		}
+            try {
+                process();
+            } catch (InterruptedException e) {
+                LOG.error("Processor has been interrupted");
+                return Collections.emptyList();
+            }
 
-		List<WebcamDevice> devices = new GetDevicesTask(this).getDevices(grabber);
+            return devices;
+        }
 
-		if (LOG.isDebugEnabled()) {
-			for (WebcamDevice device : devices) {
-				LOG.debug("Found device {}", device.getName());
-			}
-		}
+        @Override
+        protected void handle() {
 
-		return devices;
-	}
+            devices = new ArrayList<WebcamDevice>();
 
-	@Override
-	public long getScanInterval() {
-		return DEFAULT_SCAN_INTERVAL;
-	}
+            Pointer<DeviceList> pointer = grabber.getVideoDevices();
+            DeviceList list = pointer.get();
 
-	@Override
-	public boolean isScanPossible() {
-		return true;
-	}
-
-	@Override
-	public boolean isThreadSafe() {
-		return false;
-	}
+            for (Device device : list.asArrayList()) {
+                devices.add(new WebcamDefaultDevice(device));
+            }
+        }
+    }
 }

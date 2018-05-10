@@ -8,10 +8,7 @@ import org.barsf.signer.util.MD5;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.util.Hashtable;
 import java.util.Random;
 
 public class Screen {
@@ -23,17 +20,17 @@ public class Screen {
 
     private static int imageSize = 0;
 
-    public Screen(){
+    public Screen() {
         frame = new JFrame();
 
         frame.setSize(Toolkit.getDefaultToolkit().getScreenSize());
-        frame.setLocation(0,0);
+        frame.setLocation(0, 0);
         frame.setLayout(new BorderLayout());
         frame.getContentPane().setBackground(Color.BLACK);
 
         //   Need to Add
         label = new JLabel();
-        label.setSize(800,400);
+        label.setSize(800, 400);
         label.setHorizontalAlignment(JLabel.CENTER);
         label.setForeground(Color.WHITE);
 
@@ -42,21 +39,15 @@ public class Screen {
         info.setForeground(Color.WHITE);
 
 
-
         button = new JButton("Next");
-        button.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // System.out.println("YOU Clicked button!");
-                long ms = System.currentTimeMillis();
-                try {
-                    display(getRandomString());
-                } catch (WriterException e1) {
-                    e1.printStackTrace();
-                }
+        button.addActionListener(e -> {
+            try {
+                display(getRandomString());
+            } catch (WriterException e1) {
+                e1.printStackTrace();
             }
         });
-        button.setSize(50,20);
+        button.setSize(50, 20);
         //------------------------------------------------
         frame.add(label, BorderLayout.CENTER);
         frame.add(info, BorderLayout.NORTH);
@@ -67,14 +58,14 @@ public class Screen {
         frame.setVisible(true);
         //Display the window fullscreen
         // GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().setFullScreenWindow(frame);
-        int screenWidth=((int) Toolkit.getDefaultToolkit().getScreenSize().width * 80 / 100);
+        int screenWidth = ((int) Toolkit.getDefaultToolkit().getScreenSize().width * 80 / 100);
         int screenHeight = ((int) Toolkit.getDefaultToolkit().getScreenSize().height * 80 / 100);
         imageSize = screenWidth > screenHeight ? screenHeight : screenWidth;
     }
 
     public void display(String text) throws WriterException {
-        BufferedImage bi =  QRCode.from(text)
-                .withSize(imageSize,imageSize)
+        BufferedImage bi = QRCode.from(text)
+                .withSize(imageSize, imageSize)
                 .withErrorCorrection(ErrorCorrectionLevel.L)
                 .withCharset("UTF-8")
                 .withHint(EncodeHintType.MARGIN, 0)
@@ -82,15 +73,15 @@ public class Screen {
                 .genBufferedImage();
         ImageIcon ico = new ImageIcon(bi);
         label.setIcon(ico);
-        info.setText(text.length() + " - " + MD5.md5(text));
-        bi = null;
+        info.setText(text + " - " + MD5.md5(text, 6));
     }
-    private String getRandomString(){
+
+    private String getRandomString() {
         String dict = "qwertyuiopasdfghjklzxcvbnm,.;'[]\\\"|=-0987654321`!@#$%&*()_+}{:?><";
         StringBuffer text = new StringBuffer();
         Random rand = new Random();
-        int cnt = rand.nextInt(100+1) + 300;
-        for(int j = 0 ; j < cnt; j++){
+        int cnt = rand.nextInt(100 + 1) + 300;
+        for (int j = 0; j < cnt; j++) {
             Random rand1 = new Random();
             int index = rand1.nextInt(dict.length() - 1 - 0 + 1) + 0;
             text.append(dict.charAt(index));

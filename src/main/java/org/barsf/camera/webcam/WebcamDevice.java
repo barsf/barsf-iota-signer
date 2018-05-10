@@ -1,6 +1,6 @@
 package org.barsf.camera.webcam;
 
-import java.awt.Dimension;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.util.Map;
@@ -8,130 +8,130 @@ import java.util.Map;
 
 /**
  * Webcam device abstraction.
- * 
+ *
  * @author Bartosz Firyn (SarXos)
  */
 public interface WebcamDevice {
 
-	/**
-	 * This interface should be implemented by all webcam devices supporting
-	 * possibility to access raw bytes or direct bytes buffer from native webcam
-	 * device.
-	 * 
-	 * @author Bartosz Firyn (SarXos)
-	 */
-	public static interface BufferAccess {
+    /**
+     * Get device name.
+     *
+     * @return Device name
+     */
+    String getName();
 
-		/**
-		 * Read the underlying image memory buffer. This method will return new
-		 * reference to pre-allocated off-heap memory where image bytes are
-		 * stored. The size of this buffer is image width * height * 3 bytes.<br>
-		 * <br>
-		 * 
-		 * <b>NOTE!</b> Do <b>not</b> use this buffer to set bytes value. It
-		 * should be used only for read purpose!
-		 * 
-		 * @return Bytes buffer
-		 */
-		ByteBuffer getImageBytes();
+    /**
+     * Get the list of all possible image resolutions.
+     *
+     * @return Possible resolutions
+     */
+    Dimension[] getResolutions();
 
-		/**
-		 * Copy the underlying image memory into the target buffer passed as the
-		 * argument.The remaining capacity of the target buffer needs to be at
-		 * least image width * height * 3 bytes.
-		 * 
-		 * @param target the buffer to which image data should be copied
-		 */
-		void getImageBytes(ByteBuffer target);
+    /**
+     * Get currently set image size.
+     *
+     * @return The size which is currently set
+     */
+    Dimension getResolution();
 
-	}
+    /**
+     * Set new expected image size.
+     *
+     * @param size the size to be set
+     */
+    void setResolution(Dimension size);
 
-	public static interface FPSSource {
+    /**
+     * Fetch image from underlying camera.
+     *
+     * @return Image
+     */
+    BufferedImage getImage();
 
-		/**
-		 * Get current device FPS.
-		 * 
-		 * @return FPS
-		 */
-		double getFPS();
+    /**
+     * Open device, it can be closed any time.
+     */
+    void open();
 
-	}
+    /**
+     * Close device, however it can be open again.
+     */
+    void close();
 
-	/**
-	 * This interface may be implemented by devices which expect any specific
-	 * parameters.
-	 * 
-	 * @author Martin Krok (krok32) 
-	 */
-	public static interface Configurable {
+    /**
+     * Dispose device. After device is disposed it cannot be open again.
+     */
+    void dispose();
 
-		/**
-		 * Sets device parameters. Each device implementation may accept its own
-		 * set of parameters. All accepted keys, value types, possible values
-		 * and defaults should be reasonably documented by the implementor. May
-		 * be called before the open method or later in dependence of the device
-		 * implementation.
-		 * 
-		 * @param parameters - Map of parameters changing device defaults
-		 * @see Webcam#setParameters(Map)
-		 */
-		void setParameters(Map<String, ?> parameters);
-	}
-	
-	/**
-	 * Get device name.
-	 * 
-	 * @return Device name
-	 */
-	String getName();
+    /**
+     * Is webcam device open?
+     *
+     * @return True if webcam device is open, false otherwise
+     */
+    boolean isOpen();
 
-	/**
-	 * Get the list of all possible image resolutions.
-	 * 
-	 * @return Possible resolutions
-	 */
-	Dimension[] getResolutions();
+    /**
+     * This interface should be implemented by all webcam devices supporting
+     * possibility to access raw bytes or direct bytes buffer from native webcam
+     * device.
+     *
+     * @author Bartosz Firyn (SarXos)
+     */
+    public static interface BufferAccess {
 
-	/**
-	 * Get currently set image size.
-	 * 
-	 * @return The size which is currently set
-	 */
-	Dimension getResolution();
+        /**
+         * Read the underlying image memory buffer. This method will return new
+         * reference to pre-allocated off-heap memory where image bytes are
+         * stored. The size of this buffer is image width * height * 3 bytes.<br>
+         * <br>
+         *
+         * <b>NOTE!</b> Do <b>not</b> use this buffer to set bytes value. It
+         * should be used only for read purpose!
+         *
+         * @return Bytes buffer
+         */
+        ByteBuffer getImageBytes();
 
-	/**
-	 * Set new expected image size.
-	 * 
-	 * @param size the size to be set
-	 */
-	void setResolution(Dimension size);
+        /**
+         * Copy the underlying image memory into the target buffer passed as the
+         * argument.The remaining capacity of the target buffer needs to be at
+         * least image width * height * 3 bytes.
+         *
+         * @param target the buffer to which image data should be copied
+         */
+        void getImageBytes(ByteBuffer target);
 
-	/**
-	 * Fetch image from underlying camera.
-	 * 
-	 * @return Image
-	 */
-	BufferedImage getImage();
+    }
 
-	/**
-	 * Open device, it can be closed any time.
-	 */
-	void open();
+    public static interface FPSSource {
 
-	/**
-	 * Close device, however it can be open again.
-	 */
-	void close();
+        /**
+         * Get current device FPS.
+         *
+         * @return FPS
+         */
+        double getFPS();
 
-	/**
-	 * Dispose device. After device is disposed it cannot be open again.
-	 */
-	void dispose();
+    }
 
-	/**
-	 * Is webcam device open?
-	 * 
-	 * @return True if webcam device is open, false otherwise
-	 */
-	boolean isOpen();
+    /**
+     * This interface may be implemented by devices which expect any specific
+     * parameters.
+     *
+     * @author Martin Krok (krok32)
+     */
+    public static interface Configurable {
+
+        /**
+         * Sets device parameters. Each device implementation may accept its own
+         * set of parameters. All accepted keys, value types, possible values
+         * and defaults should be reasonably documented by the implementor. May
+         * be called before the open method or later in dependence of the device
+         * implementation.
+         *
+         * @param parameters - Map of parameters changing device defaults
+         * @see Webcam#setParameters(Map)
+         */
+        void setParameters(Map<String, ?> parameters);
+    }
 }

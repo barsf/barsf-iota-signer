@@ -1,12 +1,11 @@
 package org.barsf.camera.webcam;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -15,11 +14,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.imageio.ImageIO;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -31,262 +25,260 @@ import org.slf4j.LoggerFactory;
  */
 public class WebcamStreamer implements ThreadFactory, WebcamListener {
 
-	private static final Logger LOG = LoggerFactory.getLogger(WebcamStreamer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WebcamStreamer.class);
 
-	private static final String BOUNDARY = "mjpegframe";
+    private static final String BOUNDARY = "mjpegframe";
 
-	private static final String CRLF = "\r\n";
+    private static final String CRLF = "\r\n";
+    private Webcam webcam = null;
+    private double fps = 0;
+    private int number = 0;
+    private int port = 0;
+    private long last = -1;
+    private long delay = -1;
+    private BufferedImage image = null;
+    private ExecutorService executor = Executors.newCachedThreadPool(this);
+    private AtomicBoolean started = new AtomicBoolean(false);
+    public WebcamStreamer(int port, Webcam webcam, double fps, boolean start) {
 
-	private class Acceptor implements Runnable {
+        if (webcam == null) {
+            throw new IllegalArgumentException("Webcam for streaming cannot be null");
+        }
 
-		@Override
-		public void run() {
-			try (ServerSocket server = new ServerSocket(port, 50, InetAddress.getByName("0.0.0.0"))) {
-				while (started.get()) {
-					executor.execute(new Connection(server.accept()));
-				}
-			} catch (Exception e) {
-				LOG.error("Cannot accept socket connection", e);
-			}
-		}
-	}
+        this.port = port;
+        this.webcam = webcam;
+        this.fps = fps;
+        this.delay = (long) (1000 / fps);
 
-	private class Connection implements Runnable {
+        if (start) {
+            start();
+        }
+    }
 
-		private Socket socket = null;
+    @Override
+    public Thread newThread(Runnable r) {
+        Thread thread = new Thread(r, String.format("streamer-thread-%s", number++));
+        thread.setUncaughtExceptionHandler(WebcamExceptionHandler.getInstance());
+        thread.setDaemon(true);
+        return thread;
+    }
 
-		public Connection(Socket socket) {
-			this.socket = socket;
-		}
+    public void start() {
+        if (started.compareAndSet(false, true)) {
+            webcam.addWebcamListener(this);
+            webcam.open();
+            executor.execute(new Acceptor());
+        }
+    }
 
-		@Override
-		public void run() {
+    public void stop() {
+        if (started.compareAndSet(true, false)) {
+            executor.shutdown();
+            webcam.removeWebcamListener(this);
+            webcam.close();
+        }
+    }
 
-			LOG.info("New connection from {}", socket.getRemoteSocketAddress());
+    @Override
+    public void webcamOpen(WebcamEvent we) {
+        start();
+    }
 
-			final BufferedReader br;
-			final BufferedOutputStream bos;
-			final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    @Override
+    public void webcamClosed(WebcamEvent we) {
+        stop();
+    }
 
-			try {
-				br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-				bos = new BufferedOutputStream(socket.getOutputStream());
-			} catch (IOException e) {
-				LOG.error("Fatal I/O exception when creating socket streams", e);
-				try {
-					socket.close();
-				} catch (IOException e1) {
-					LOG.error("Canot close socket connection from " + socket.getRemoteSocketAddress(), e1);
-				}
-				return;
-			}
+    @Override
+    public void webcamDisposed(WebcamEvent we) {
+    }
 
-			// consume whole input
+    @Override
+    public void webcamImageObtained(WebcamEvent we) {
+    }
 
-			try {
-				while (br.ready()) {
-					br.readLine();
-				}
-			} catch (IOException e) {
-				LOG.error("Error when reading input", e);
-				return;
-			}
+    public double getFPS() {
+        return fps;
+    }
 
-			// stream
+    public boolean isInitialized() {
+        return started.get();
+    }
 
-			try {
+    public int getPort() {
+        return port;
+    }
 
-				socket.setSoTimeout(0);
-				socket.setKeepAlive(false);
-				socket.setTcpNoDelay(true);
+    private class Acceptor implements Runnable {
 
-				while (started.get()) {
+        @Override
+        public void run() {
+            try (ServerSocket server = new ServerSocket(port, 50, InetAddress.getByName("0.0.0.0"))) {
+                while (started.get()) {
+                    executor.execute(new Connection(server.accept()));
+                }
+            } catch (Exception e) {
+                LOG.error("Cannot accept socket connection", e);
+            }
+        }
+    }
 
-					StringBuilder sb = new StringBuilder();
-					sb.append("HTTP/1.0 200 OK").append(CRLF);
-					sb.append("Connection: close").append(CRLF);
-					sb.append("Cache-Control: no-cache").append(CRLF);
-					sb.append("Cache-Control: private").append(CRLF);
-					sb.append("Pragma: no-cache").append(CRLF);
-					sb.append("Content-type: multipart/x-mixed-replace; boundary=--").append(BOUNDARY).append(CRLF);
-					sb.append(CRLF);
+    private class Connection implements Runnable {
 
-					bos.write(sb.toString().getBytes());
+        private Socket socket = null;
 
-					do {
+        public Connection(Socket socket) {
+            this.socket = socket;
+        }
 
-						if (!webcam.isOpen() || socket.isInputShutdown() || socket.isClosed()) {
-							br.close();
-							bos.close();
-							return;
-						}
+        @Override
+        public void run() {
 
-						baos.reset();
+            LOG.info("New connection from {}", socket.getRemoteSocketAddress());
 
-						long now = System.currentTimeMillis();
-						if (now > last + delay) {
-							image = webcam.getImage();
-						}
+            final BufferedReader br;
+            final BufferedOutputStream bos;
+            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-						ImageIO.write(image, "JPG", baos);
+            try {
+                br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                bos = new BufferedOutputStream(socket.getOutputStream());
+            } catch (IOException e) {
+                LOG.error("Fatal I/O exception when creating socket streams", e);
+                try {
+                    socket.close();
+                } catch (IOException e1) {
+                    LOG.error("Canot close socket connection from " + socket.getRemoteSocketAddress(), e1);
+                }
+                return;
+            }
 
-						sb.delete(0, sb.length());
-						sb.append("--").append(BOUNDARY).append(CRLF);
-						sb.append("Content-type: image/jpeg").append(CRLF);
-						sb.append("Content-Length: ").append(baos.size()).append(CRLF);
-						sb.append(CRLF);
+            // consume whole input
 
-						try {
-							bos.write(sb.toString().getBytes());
-							bos.write(baos.toByteArray());
-							bos.write(CRLF.getBytes());
-							bos.flush();
-						} catch (SocketException e) {
+            try {
+                while (br.ready()) {
+                    br.readLine();
+                }
+            } catch (IOException e) {
+                LOG.error("Error when reading input", e);
+                return;
+            }
 
-							if (!socket.isConnected()) {
-								LOG.debug("Connection to client has been lost");
-							}
-							if (socket.isClosed()) {
-								LOG.debug("Connection to client is closed");
-							}
+            // stream
 
-							try {
-								br.close();
-								bos.close();
-							} catch (SocketException se) {
-								LOG.debug("Exception when closing socket", se);
-							}
+            try {
 
-							LOG.debug("Socket exception from " + socket.getRemoteSocketAddress(), e);
+                socket.setSoTimeout(0);
+                socket.setKeepAlive(false);
+                socket.setTcpNoDelay(true);
 
-							return;
-						}
+                while (started.get()) {
 
-						Thread.sleep(delay);
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("HTTP/1.0 200 OK").append(CRLF);
+                    sb.append("Connection: close").append(CRLF);
+                    sb.append("Cache-Control: no-cache").append(CRLF);
+                    sb.append("Cache-Control: private").append(CRLF);
+                    sb.append("Pragma: no-cache").append(CRLF);
+                    sb.append("Content-type: multipart/x-mixed-replace; boundary=--").append(BOUNDARY).append(CRLF);
+                    sb.append(CRLF);
 
-					} while (started.get());
-				}
-			} catch (Exception e) {
+                    bos.write(sb.toString().getBytes());
 
-				String message = e.getMessage();
+                    do {
 
-				if (message != null) {
-					if (message.startsWith("Software caused connection abort")) {
-						LOG.info("User closed stream");
-						return;
-					}
-					if (message.startsWith("Broken pipe")) {
-						LOG.info("User connection broken");
-						return;
-					}
-				}
+                        if (!webcam.isOpen() || socket.isInputShutdown() || socket.isClosed()) {
+                            br.close();
+                            bos.close();
+                            return;
+                        }
 
-				LOG.error("Error", e);
+                        baos.reset();
 
-				try {
-					bos.write("HTTP/1.0 501 Internal Server Error\r\n\r\n\r\n".getBytes());
-				} catch (IOException e1) {
-					LOG.error("Not ablte to write to output stream", e);
-				}
+                        long now = System.currentTimeMillis();
+                        if (now > last + delay) {
+                            image = webcam.getImage();
+                        }
 
-			} finally {
+                        ImageIO.write(image, "JPG", baos);
 
-				LOG.info("Closing connection from {}", socket.getRemoteSocketAddress());
+                        sb.delete(0, sb.length());
+                        sb.append("--").append(BOUNDARY).append(CRLF);
+                        sb.append("Content-type: image/jpeg").append(CRLF);
+                        sb.append("Content-Length: ").append(baos.size()).append(CRLF);
+                        sb.append(CRLF);
 
-				for (Closeable closeable : new Closeable[] { br, bos, baos }) {
-					try {
-						closeable.close();
-					} catch (IOException e) {
-						LOG.debug("Cannot close socket", e);
-					}
-				}
-				try {
-					socket.close();
-				} catch (IOException e) {
-					LOG.debug("Cannot close socket", e);
-				}
-			}
-		}
-	}
+                        try {
+                            bos.write(sb.toString().getBytes());
+                            bos.write(baos.toByteArray());
+                            bos.write(CRLF.getBytes());
+                            bos.flush();
+                        } catch (SocketException e) {
 
-	private Webcam webcam = null;
-	private double fps = 0;
-	private int number = 0;
-	private int port = 0;
-	private long last = -1;
-	private long delay = -1;
-	private BufferedImage image = null;
-	private ExecutorService executor = Executors.newCachedThreadPool(this);
-	private AtomicBoolean started = new AtomicBoolean(false);
+                            if (!socket.isConnected()) {
+                                LOG.debug("Connection to client has been lost");
+                            }
+                            if (socket.isClosed()) {
+                                LOG.debug("Connection to client is closed");
+                            }
 
-	public WebcamStreamer(int port, Webcam webcam, double fps, boolean start) {
+                            try {
+                                br.close();
+                                bos.close();
+                            } catch (SocketException se) {
+                                LOG.debug("Exception when closing socket", se);
+                            }
 
-		if (webcam == null) {
-			throw new IllegalArgumentException("Webcam for streaming cannot be null");
-		}
+                            LOG.debug("Socket exception from " + socket.getRemoteSocketAddress(), e);
 
-		this.port = port;
-		this.webcam = webcam;
-		this.fps = fps;
-		this.delay = (long) (1000 / fps);
+                            return;
+                        }
 
-		if (start) {
-			start();
-		}
-	}
+                        Thread.sleep(delay);
 
-	@Override
-	public Thread newThread(Runnable r) {
-		Thread thread = new Thread(r, String.format("streamer-thread-%s", number++));
-		thread.setUncaughtExceptionHandler(WebcamExceptionHandler.getInstance());
-		thread.setDaemon(true);
-		return thread;
-	}
+                    } while (started.get());
+                }
+            } catch (Exception e) {
 
-	public void start() {
-		if (started.compareAndSet(false, true)) {
-			webcam.addWebcamListener(this);
-			webcam.open();
-			executor.execute(new Acceptor());
-		}
-	}
+                String message = e.getMessage();
 
-	public void stop() {
-		if (started.compareAndSet(true, false)) {
-			executor.shutdown();
-			webcam.removeWebcamListener(this);
-			webcam.close();
-		}
-	}
+                if (message != null) {
+                    if (message.startsWith("Software caused connection abort")) {
+                        LOG.info("User closed stream");
+                        return;
+                    }
+                    if (message.startsWith("Broken pipe")) {
+                        LOG.info("User connection broken");
+                        return;
+                    }
+                }
 
-	@Override
-	public void webcamOpen(WebcamEvent we) {
-		start();
-	}
+                LOG.error("Error", e);
 
-	@Override
-	public void webcamClosed(WebcamEvent we) {
-		stop();
-	}
+                try {
+                    bos.write("HTTP/1.0 501 Internal Server Error\r\n\r\n\r\n".getBytes());
+                } catch (IOException e1) {
+                    LOG.error("Not ablte to write to output stream", e);
+                }
 
-	@Override
-	public void webcamDisposed(WebcamEvent we) {
-	}
+            } finally {
 
-	@Override
-	public void webcamImageObtained(WebcamEvent we) {
-	}
+                LOG.info("Closing connection from {}", socket.getRemoteSocketAddress());
 
-	public double getFPS() {
-		return fps;
-	}
-
-	public boolean isInitialized() {
-		return started.get();
-	}
-
-	public int getPort() {
-		return port;
-	}
+                for (Closeable closeable : new Closeable[]{br, bos, baos}) {
+                    try {
+                        closeable.close();
+                    } catch (IOException e) {
+                        LOG.debug("Cannot close socket", e);
+                    }
+                }
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    LOG.debug("Cannot close socket", e);
+                }
+            }
+        }
+    }
 
 }

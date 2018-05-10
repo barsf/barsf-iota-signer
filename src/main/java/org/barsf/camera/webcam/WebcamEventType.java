@@ -2,12 +2,12 @@ package org.barsf.camera.webcam;
 
 public enum WebcamEventType {
 
-	OPEN,
+    OPEN,
 
-	CLOSED,
+    CLOSED,
 
-	DISPOSED,
+    DISPOSED,
 
-	NEW_IMAGE,
+    NEW_IMAGE,
 
 }

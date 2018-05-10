@@ -1,15 +1,14 @@
 package org.barsf.camera.util;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 
 /**
@@ -19,70 +18,69 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
  */
 public class AdaptiveSizeWriter {
 
-	private static final float INITIAL_QUALITY = 1f;
+    private static final float INITIAL_QUALITY = 1f;
+    private final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    private volatile int size;
+    private float quality = 1f; // 1f = 100% quality, at the beginning
 
-	private volatile int size;
-	private final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	private float quality = 1f; // 1f = 100% quality, at the beginning
+    public AdaptiveSizeWriter(int size) {
+        this.size = size;
+    }
 
-	public AdaptiveSizeWriter(int size) {
-		this.size = size;
-	}
+    public byte[] write(final BufferedImage bi) {
 
-	public byte[] write(final BufferedImage bi) {
+        // loop and try to compress until compressed image bytes array is not longer than a given
+        // maximum value, reduce quality by 25% in every step
 
-		// loop and try to compress until compressed image bytes array is not longer than a given
-		// maximum value, reduce quality by 25% in every step
+        int m = size;
+        int s = 0;
+        int i = 0;
+        do {
+            if ((s = compress(bi, quality)) > m) {
+                quality *= 0.75;
+                if (i++ >= 20) {
+                    break;
+                }
+            }
+        } while (s > m);
 
-		int m = size;
-		int s = 0;
-		int i = 0;
-		do {
-			if ((s = compress(bi, quality)) > m) {
-				quality *= 0.75;
-				if (i++ >= 20) {
-					break;
-				}
-			}
-		} while (s > m);
+        return baos.toByteArray();
+    }
 
-		return baos.toByteArray();
-	}
+    /**
+     * Compress {@link BufferedImage} with a given quality into byte array.
+     *
+     * @param bi      the {@link BufferedImage} to compres into byte array
+     * @param quality the compressed image quality (1 = 100%, 0.5 = 50%, 0.1 = 10%, etc)
+     * @return The size of compressed data (number of bytes)
+     */
+    private int compress(BufferedImage bi, float quality) {
 
-	/**
-	 * Compress {@link BufferedImage} with a given quality into byte array.
-	 *
-	 * @param bi the {@link BufferedImage} to compres into byte array
-	 * @param quality the compressed image quality (1 = 100%, 0.5 = 50%, 0.1 = 10%, etc)
-	 * @return The size of compressed data (number of bytes)
-	 */
-	private int compress(BufferedImage bi, float quality) {
+        baos.reset();
 
-		baos.reset();
+        final JPEGImageWriteParam params = new JPEGImageWriteParam(null);
+        params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        params.setCompressionQuality(quality);
 
-		final JPEGImageWriteParam params = new JPEGImageWriteParam(null);
-		params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-		params.setCompressionQuality(quality);
+        try (MemoryCacheImageOutputStream mcios = new MemoryCacheImageOutputStream(baos)) {
+            final ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+            writer.setOutput(mcios);
+            writer.write(null, new IIOImage(bi, null, null), params);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
 
-		try (MemoryCacheImageOutputStream mcios = new MemoryCacheImageOutputStream(baos)) {
-			final ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
-			writer.setOutput(mcios);
-			writer.write(null, new IIOImage(bi, null, null), params);
-		} catch (IOException e) {
-			throw new IllegalStateException(e);
-		}
+        return baos.size();
+    }
 
-		return baos.size();
-	}
+    public int getSize() {
+        return size;
+    }
 
-	public int getSize() {
-		return size;
-	}
-
-	public void setSize(int size) {
-		if (this.size != size) {
-			this.size = size;
-			this.quality = INITIAL_QUALITY;
-		}
-	}
+    public void setSize(int size) {
+        if (this.size != size) {
+            this.size = size;
+            this.quality = INITIAL_QUALITY;
+        }
+    }
 }

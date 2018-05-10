@@ -1,174 +1,166 @@
 package org.barsf.camera.webcam;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class WebcamProcessor {
 
-	private static final Logger LOG = LoggerFactory.getLogger(WebcamProcessor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WebcamProcessor.class);
+    /**
+     * Is processor started?
+     */
+    private static final AtomicBoolean started = new AtomicBoolean(false);
+    /**
+     * Static processor.
+     */
+    private static final AtomicProcessor processor = new AtomicProcessor();
+    /**
+     * Singleton instance.
+     */
+    private static final WebcamProcessor INSTANCE = new WebcamProcessor();
+    /**
+     * Execution service.
+     */
+    private static ExecutorService runner = null;
 
-	/**
-	 * Thread doing supersync processing.
-	 *
-	 * @author sarxos
-	 */
-	public static final class ProcessorThread extends Thread {
+    private WebcamProcessor() {
+    }
 
-		private static final AtomicInteger N = new AtomicInteger(0);
+    public static synchronized WebcamProcessor getInstance() {
+        return INSTANCE;
+    }
 
-		public ProcessorThread(Runnable r) {
-			super(r, String.format("atomic-processor-%d", N.incrementAndGet()));
-		}
-	}
+    /**
+     * Process single webcam task.
+     *
+     * @param task the task to be processed
+     * @throws InterruptedException when thread has been interrupted
+     */
+    public void process(WebcamTask task) throws InterruptedException {
 
-	/**
-	 * Thread factory for processor.
-	 *
-	 * @author Bartosz Firyn (SarXos)
-	 */
-	private static final class ProcessorThreadFactory implements ThreadFactory {
+        if (started.compareAndSet(false, true)) {
+            runner = Executors.newSingleThreadExecutor(new ProcessorThreadFactory());
+            runner.execute(processor);
+        }
 
-		@Override
-		public Thread newThread(Runnable r) {
-			Thread t = new ProcessorThread(r);
-			t.setUncaughtExceptionHandler(WebcamExceptionHandler.getInstance());
-			t.setDaemon(true);
-			return t;
-		}
-	}
+        if (!runner.isShutdown()) {
+            processor.process(task);
+        } else {
+            throw new RejectedExecutionException("Cannot process because processor runner has been already shut down");
+        }
+    }
+    ;
 
-	/**
-	 * Heart of overall processing system. This class process all native calls wrapped in tasks, by
-	 * doing this all tasks executions are super-synchronized.
-	 *
-	 * @author Bartosz Firyn (SarXos)
-	 */
-	private static final class AtomicProcessor implements Runnable {
+    public void shutdown() {
+        if (started.compareAndSet(true, false)) {
 
-		private SynchronousQueue<WebcamTask> inbound = new SynchronousQueue<WebcamTask>(true);
-		private SynchronousQueue<WebcamTask> outbound = new SynchronousQueue<WebcamTask>(true);
+            LOG.debug("Shutting down webcam processor");
 
-		/**
-		 * Process task.
-		 *
-		 * @param task the task to be processed
-		 * @throws InterruptedException when thread has been interrupted
-		 */
-		public void process(WebcamTask task) throws InterruptedException {
-			inbound.put(task);
+            runner.shutdown();
 
-			Throwable t = outbound.take().getThrowable();
-			if (t != null) {
-				throw new WebcamException("Cannot execute task", t);
-			}
-		}
+            LOG.debug("Awaiting tasks termination");
 
-		@Override
-		public void run() {
-			while (true) {
-				WebcamTask t = null;
-				try {
-					(t = inbound.take()).handle();
-				} catch (InterruptedException e) {
-					break;
-				} catch (Throwable e) {
-					if (t != null) {
-						t.setThrowable(e);
-					}
-				} finally {
-					if (t != null) {
-						try {
-							outbound.put(t);
-						} catch (InterruptedException e) {
-							break;
-						} catch (Exception e) {
-							throw new RuntimeException("Cannot put task into outbound queue", e);
-						}
-					}
-				}
-			}
-		}
-	}
+            while (runner.isTerminated()) {
 
-	/**
-	 * Is processor started?
-	 */
-	private static final AtomicBoolean started = new AtomicBoolean(false);
+                try {
+                    runner.awaitTermination(100, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    return;
+                }
 
-	/**
-	 * Execution service.
-	 */
-	private static ExecutorService runner = null;
+                runner.shutdownNow();
+            }
 
-	/**
-	 * Static processor.
-	 */
-	private static final AtomicProcessor processor = new AtomicProcessor();
+            LOG.debug("All tasks has been terminated");
+        }
 
-	/**
-	 * Singleton instance.
-	 */
-	private static final WebcamProcessor INSTANCE = new WebcamProcessor();;
+    }
 
-	private WebcamProcessor() {
-	}
+    /**
+     * Thread doing supersync processing.
+     *
+     * @author sarxos
+     */
+    public static final class ProcessorThread extends Thread {
 
-	/**
-	 * Process single webcam task.
-	 *
-	 * @param task the task to be processed
-	 * @throws InterruptedException when thread has been interrupted
-	 */
-	public void process(WebcamTask task) throws InterruptedException {
+        private static final AtomicInteger N = new AtomicInteger(0);
 
-		if (started.compareAndSet(false, true)) {
-			runner = Executors.newSingleThreadExecutor(new ProcessorThreadFactory());
-			runner.execute(processor);
-		}
+        public ProcessorThread(Runnable r) {
+            super(r, String.format("atomic-processor-%d", N.incrementAndGet()));
+        }
+    }
 
-		if (!runner.isShutdown()) {
-			processor.process(task);
-		} else {
-			throw new RejectedExecutionException("Cannot process because processor runner has been already shut down");
-		}
-	}
+    /**
+     * Thread factory for processor.
+     *
+     * @author Bartosz Firyn (SarXos)
+     */
+    private static final class ProcessorThreadFactory implements ThreadFactory {
 
-	public void shutdown() {
-		if (started.compareAndSet(true, false)) {
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new ProcessorThread(r);
+            t.setUncaughtExceptionHandler(WebcamExceptionHandler.getInstance());
+            t.setDaemon(true);
+            return t;
+        }
+    }
 
-			LOG.debug("Shutting down webcam processor");
+    /**
+     * Heart of overall processing system. This class process all native calls wrapped in tasks, by
+     * doing this all tasks executions are super-synchronized.
+     *
+     * @author Bartosz Firyn (SarXos)
+     */
+    private static final class AtomicProcessor implements Runnable {
 
-			runner.shutdown();
+        private SynchronousQueue<WebcamTask> inbound = new SynchronousQueue<WebcamTask>(true);
+        private SynchronousQueue<WebcamTask> outbound = new SynchronousQueue<WebcamTask>(true);
 
-			LOG.debug("Awaiting tasks termination");
+        /**
+         * Process task.
+         *
+         * @param task the task to be processed
+         * @throws InterruptedException when thread has been interrupted
+         */
+        public void process(WebcamTask task) throws InterruptedException {
+            inbound.put(task);
 
-			while (runner.isTerminated()) {
+            Throwable t = outbound.take().getThrowable();
+            if (t != null) {
+                throw new WebcamException("Cannot execute task", t);
+            }
+        }
 
-				try {
-					runner.awaitTermination(100, TimeUnit.MILLISECONDS);
-				} catch (InterruptedException e) {
-					return;
-				}
-
-				runner.shutdownNow();
-			}
-
-			LOG.debug("All tasks has been terminated");
-		}
-
-	}
-
-	public static synchronized WebcamProcessor getInstance() {
-		return INSTANCE;
-	}
+        @Override
+        public void run() {
+            while (true) {
+                WebcamTask t = null;
+                try {
+                    (t = inbound.take()).handle();
+                } catch (InterruptedException e) {
+                    break;
+                } catch (Throwable e) {
+                    if (t != null) {
+                        t.setThrowable(e);
+                    }
+                } finally {
+                    if (t != null) {
+                        try {
+                            outbound.put(t);
+                        } catch (InterruptedException e) {
+                            break;
+                        } catch (Exception e) {
+                            throw new RuntimeException("Cannot put task into outbound queue", e);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

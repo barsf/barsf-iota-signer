@@ -1,21 +1,21 @@
 /**
  * Copyright (c) 2011, The University of Southampton and the individual contributors.
  * All rights reserved.
- *
+ * <p>
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- *
- *   * 	Redistributions of source code must retain the above copyright notice,
- * 	this list of conditions and the following disclaimer.
- *
- *   *	Redistributions in binary form must reproduce the above copyright notice,
- * 	this list of conditions and the following disclaimer in the documentation
- * 	and/or other materials provided with the distribution.
- *
- *   *	Neither the name of the University of Southampton nor the names of its
- * 	contributors may be used to endorse or promote products derived from this
- * 	software without specific prior written permission.
- *
+ * <p>
+ * * 	Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * <p>
+ * *	Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ * <p>
+ * *	Neither the name of the University of Southampton nor the names of its
+ * contributors may be used to endorse or promote products derived from this
+ * software without specific prior written permission.
+ * <p>
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -55,49 +55,49 @@ import org.bridj.cpp.CPPRuntime;
 @SuppressWarnings("all")
 public class OpenIMAJGrabber extends CPPObject {
 
-	static {
-		//Platform.addEmbeddedLibraryResourceRoot("com/github/sarxos/webcam/ds/buildin/lib/");
-		Platform.addEmbeddedLibraryResourceRoot("org/barsf/camera/webcam/ds/buildin/lib/");
-		BridJ.register();
-	}
+    static {
+        //Platform.addEmbeddedLibraryResourceRoot("com/github/sarxos/webcam/ds/buildin/lib/");
+        Platform.addEmbeddedLibraryResourceRoot("org/barsf/camera/webcam/ds/buildin/lib/");
+        BridJ.register();
+    }
 
-	public OpenIMAJGrabber() {
-		super();
-	}
+    public OpenIMAJGrabber() {
+        super();
+    }
 
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public OpenIMAJGrabber(Pointer pointer) {
-		super(pointer);
-	}
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public OpenIMAJGrabber(Pointer pointer) {
+        super(pointer);
+    }
 
-	public native Pointer<DeviceList> getVideoDevices();
+    public native Pointer<DeviceList> getVideoDevices();
 
-	public native Pointer<Byte> getImage();
+    public native Pointer<Byte> getImage();
 
-	public native int nextFrame();
+    public native int nextFrame();
 
-	public native void setTimeout(int timeout);
+    public native void setTimeout(int timeout);
 
-	public native boolean startSession(int width, int height, double reqFPS);
+    public native boolean startSession(int width, int height, double reqFPS);
 
-	public native boolean startSession(int width, int height, double reqFPS, Pointer<Device> devptr);
+    public native boolean startSession(int width, int height, double reqFPS, Pointer<Device> devptr);
 
-	public native void stopSession();
+    public native void stopSession();
 
-	public native int getWidth();
+    public native int getWidth();
 
-	public native int getHeight();
+    public native int getHeight();
 
-	// / C type : void*
-	@Field(0)
-	protected Pointer<?> data() {
-		return this.io.getPointerField(this, 0);
-	}
+    // / C type : void*
+    @Field(0)
+    protected Pointer<?> data() {
+        return this.io.getPointerField(this, 0);
+    }
 
-	// / C type : void*
-	@Field(0)
-	protected OpenIMAJGrabber data(Pointer<?> data) {
-		this.io.setPointerField(this, 0, data);
-		return this;
-	}
+    // / C type : void*
+    @Field(0)
+    protected OpenIMAJGrabber data(Pointer<?> data) {
+        this.io.setPointerField(this, 0, data);
+        return this;
+    }
 }

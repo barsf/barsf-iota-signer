@@ -54,6 +54,7 @@ public class QRCode extends AbstractQRCode {
      * <p>
      * The QRCode will have the following defaults:     <br> {size: 100x100}<br>{imageType:PNG}  <br><br>
      * </p>
+     *
      * @param schema the schema to encode as QRCode
      * @return the QRCode object
      */
@@ -111,7 +112,7 @@ public class QRCode extends AbstractQRCode {
      * Sets hint to {@link com.google.zxing.qrcode.QRCodeWriter#encode}
      *
      * @param hintType the hintType to set
-     * @param value the concrete value to set
+     * @param value    the concrete value to set
      * @return the current QRCode object
      */
     public QRCode withHint(EncodeHintType hintType, Object value) {
@@ -154,6 +155,7 @@ public class QRCode extends AbstractQRCode {
     protected BufferedImage genBufferedImage() throws WriterException {
         return MatrixToImageWriter.toBufferedImage(createMatrix(text), matrixToImageConfig);
     }
+
     private File createTempSvgFile() throws IOException {
         return createTempSvgFile("QRCode");
     }

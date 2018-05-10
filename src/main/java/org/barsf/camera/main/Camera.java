@@ -1,21 +1,16 @@
 package org.barsf.camera.main;
 
-import java.awt.*;
-import java.awt.image.BufferedImage;
-
-import javax.swing.JFrame;
-import javax.swing.JTextArea;
-
+import com.google.zxing.*;
+import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.GlobalHistogramBinarizer;
 import org.barsf.camera.webcam.Webcam;
-import org.barsf.camera.webcam.WebcamResolution;
 import org.barsf.camera.webcam.WebcamPanel;
-import com.google.zxing.BinaryBitmap;
-import com.google.zxing.LuminanceSource;
-import com.google.zxing.MultiFormatReader;
-import com.google.zxing.NotFoundException;
-import com.google.zxing.Result;
-import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
+import org.barsf.camera.webcam.WebcamResolution;
+
+import javax.swing.*;
+import java.awt.Dimension;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 
 public class Camera extends JFrame {// implements Runnable, ThreadFactory
 
@@ -26,9 +21,7 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
     private static WebcamPanel panel = null;
     private static JTextArea textarea = null;
     private static String result = null;
-    public void DrawSth(String a){
-        textarea.setText(a);
-    }
+
     public Camera() {
 
         super();
@@ -59,18 +52,21 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
         setVisible(false);
     }
 
-    public String scan(){
+    public void DrawSth(String a) {
+        textarea.setText(a);
+    }
+
+    public String scan() {
 
         String result = null;
         BufferedImage image = null;
         int retry_cnt = 10;
-        do{
-            if(retry_cnt-- < 0){
+        do {
+            if (retry_cnt-- < 0) {
                 break;
             }
             if (webcam.isOpen()) {
                 if ((image = webcam.getImage()) == null) {
-                    // System.out.println("webcam.getImage() == null");
                     continue;
                 }
 
@@ -79,18 +75,17 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
                 BinaryBitmap bitmap = new BinaryBitmap(new GlobalHistogramBinarizer(source));
                 int h = bitmap.getHeight();
                 int w = bitmap.getWidth();
-                int crop = (w-h)/2;
-                bitmap = bitmap.crop(crop, 0, w - crop, h);
+                /*int crop = (w - h) / 2;
+                bitmap = bitmap.crop(crop, 0, w - crop, h);*/
 
                 try {
                     Result r = new MultiFormatReader().decode(bitmap);
-                    if(r != null)
+                    if (r != null) {
                         result = r.getText();
-
+                    }
                 } catch (NotFoundException e) {
-                    // fall thru, it means there is no QR code in image
                 }
-            }else{
+            } else {
                 webcam.close();
                 panel.stop();
                 try {
@@ -101,19 +96,20 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
                 panel.start();
                 break;
             }
-
-        }while(result == null);
+        } while (result == null);
 
         return result;
 
     }
-    public void destroy(){
+
+    public void destroy() {
         if (webcam.isOpen()) {
             panel.stop();
         }
     }
-    public void reinit(){
-        if(panel.isStarting() || panel.isStarted()){
+
+    public void reinit() {
+        if (panel.isStarting() || panel.isStarted()) {
             panel.stop();
         }
         panel.start();

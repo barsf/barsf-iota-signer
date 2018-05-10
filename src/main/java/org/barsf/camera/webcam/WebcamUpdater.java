@@ -1,312 +1,298 @@
 package org.barsf.camera.webcam;
 
-import java.awt.image.BufferedImage;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-
+import org.barsf.camera.ds.cgt.WebcamGetImageTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.barsf.camera.ds.cgt.WebcamGetImageTask;
+import java.awt.image.BufferedImage;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 /**
  * The goal of webcam updater class is to update image in parallel, so all calls to fetch image
  * invoked on webcam instance will be non-blocking (will return immediately).
- * 
+ *
  * @author Bartosz Firyn (sarxos)
  */
 public class WebcamUpdater implements Runnable {
 
-	/**
-	 * Implementation of this interface is responsible for calculating the delay between 2 image
-	 * fetching, when the non-blocking (asynchronous) access to the webcam is enabled.
-	 */
-	public static interface DelayCalculator {
+    /**
+     * Logger.
+     */
+    private static final Logger LOG = LoggerFactory.getLogger(WebcamUpdater.class);
+    /**
+     * Target FPS.
+     */
+    private static final int TARGET_FPS = 50;
+    private static final UpdaterThreadFactory THREAD_FACTORY = new UpdaterThreadFactory();
+    /**
+     * Cached image.
+     */
+    private final AtomicReference<BufferedImage> image = new AtomicReference<BufferedImage>();
+    /**
+     * DelayCalculator implementation.
+     */
+    private final DelayCalculator delayCalculator;
+    /**
+     * Executor service.
+     */
+    private ScheduledExecutorService executor = null;
+    /**
+     * Webcam to which this updater is attached.
+     */
+    private Webcam webcam = null;
+    /**
+     * Current FPS rate.
+     */
+    private volatile double fps = 0;
+    /**
+     * Is updater running.
+     */
+    private AtomicBoolean running = new AtomicBoolean(false);
+    private volatile boolean imageNew = false;
 
-		/**
-		 * Calculates delay before the next image will be fetched from the webcam. Must return
-		 * number greater or equal 0.
-		 * 
-		 * @param snapshotDuration - duration of taking the last image
-		 * @param deviceFps - current FPS obtained from the device, or -1 if the driver doesn't
-		 *            support it
-		 * @return interval (in millis)
-		 */
-		long calculateDelay(long snapshotDuration, double deviceFps);
-	}
+    /**
+     * Construct new webcam updater using DefaultDelayCalculator.
+     *
+     * @param webcam the webcam to which updater shall be attached
+     */
+    protected WebcamUpdater(Webcam webcam) {
+        this(webcam, new DefaultDelayCalculator());
+    }
 
-	/**
-	 * Default impl of DelayCalculator, based on TARGET_FPS. Returns 0 delay for snapshotDuration
-	 * &gt; 20 millis.
-	 */
-	public static class DefaultDelayCalculator implements DelayCalculator {
+    /**
+     * Construct new webcam updater.
+     *
+     * @param webcam          the webcam to which updater shall be attached
+     * @param delayCalculator implementation
+     */
+    public WebcamUpdater(Webcam webcam, DelayCalculator delayCalculator) {
+        this.webcam = webcam;
+        if (delayCalculator == null) {
+            this.delayCalculator = new DefaultDelayCalculator();
+        } else {
+            this.delayCalculator = delayCalculator;
+        }
+    }
 
-		@Override
-		public long calculateDelay(long snapshotDuration, double deviceFps) {
-			// Calculate delay required to achieve target FPS.
-			// In some cases it can be less than 0
-			// because camera is not able to serve images as fast as
-			// we would like to. In such case just run with no delay,
-			// so maximum FPS will be the one supported
-			// by camera device in the moment.
+    /**
+     * Start updater.
+     */
+    public void start() {
 
-			long delay = Math.max((1000 / TARGET_FPS) - snapshotDuration, 0);
-			return delay;
-		}
-	}
+        if (running.compareAndSet(false, true)) {
 
-	/**
-	 * Thread factory for executors used within updater class.
-	 * 
-	 * @author Bartosz Firyn (sarxos)
-	 */
-	private static final class UpdaterThreadFactory implements ThreadFactory {
+            image.set(new WebcamGetImageTask(Webcam.getDriver(), webcam.getDevice()).getImage());
 
-		private static final AtomicInteger number = new AtomicInteger(0);
+            executor = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
+            executor.execute(this);
 
-		@Override
-		public Thread newThread(Runnable r) {
-			Thread t = new Thread(r, String.format("webcam-updater-thread-%d", number.incrementAndGet()));
-			t.setUncaughtExceptionHandler(WebcamExceptionHandler.getInstance());
-			t.setDaemon(true);
-			return t;
-		}
+            LOG.debug("Webcam updater has been started");
+        } else {
+            LOG.debug("Webcam updater is already started");
+        }
+    }
 
-	}
+    /**
+     * Stop updater.
+     */
+    public void stop() {
+        if (running.compareAndSet(true, false)) {
 
-	/**
-	 * Logger.
-	 */
-	private static final Logger LOG = LoggerFactory.getLogger(WebcamUpdater.class);
+            executor.shutdown();
+            while (!executor.isTerminated()) {
+                try {
+                    executor.awaitTermination(100, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
 
-	/**
-	 * Target FPS.
-	 */
-	private static final int TARGET_FPS = 50;
+            LOG.debug("Webcam updater has been stopped");
+        } else {
+            LOG.debug("Webcam updater is already stopped");
+        }
+    }
 
-	private static final UpdaterThreadFactory THREAD_FACTORY = new UpdaterThreadFactory();
+    @Override
+    public void run() {
 
-	/**
-	 * Executor service.
-	 */
-	private ScheduledExecutorService executor = null;
+        if (!running.get()) {
+            return;
+        }
 
-	/**
-	 * Cached image.
-	 */
-	private final AtomicReference<BufferedImage> image = new AtomicReference<BufferedImage>();
+        try {
+            tick();
+        } catch (Throwable t) {
+            WebcamExceptionHandler.handle(t);
+        }
+    }
 
-	/**
-	 * Webcam to which this updater is attached.
-	 */
-	private Webcam webcam = null;
+    private void tick() {
 
-	/**
-	 * Current FPS rate.
-	 */
-	private volatile double fps = 0;
+        if (!webcam.isOpen()) {
+            return;
+        }
 
-	/**
-	 * Is updater running.
-	 */
-	private AtomicBoolean running = new AtomicBoolean(false);
+        // Calculate time required to fetch 1 picture.
 
-	private volatile boolean imageNew = false;
+        WebcamDriver driver = Webcam.getDriver();
+        WebcamDevice device = webcam.getDevice();
 
-	/**
-	 * DelayCalculator implementation.
-	 */
-	private final DelayCalculator delayCalculator;
+        assert driver != null;
+        assert device != null;
 
-	/**
-	 * Construct new webcam updater using DefaultDelayCalculator.
-	 * 
-	 * @param webcam the webcam to which updater shall be attached
-	 */
-	protected WebcamUpdater(Webcam webcam) {
-		this(webcam, new DefaultDelayCalculator());
-	}
+        boolean imageOk = false;
+        long t1 = System.currentTimeMillis();
+        try {
+            image.set(webcam.transform(new WebcamGetImageTask(driver, device).getImage()));
+            imageNew = true;
+            imageOk = true;
+        } catch (WebcamException e) {
+            WebcamExceptionHandler.handle(e);
+        }
+        long t2 = System.currentTimeMillis();
 
-	/**
-	 * Construct new webcam updater.
-	 * 
-	 * @param webcam the webcam to which updater shall be attached
-	 * @param delayCalculator implementation
-	 */
-	public WebcamUpdater(Webcam webcam, DelayCalculator delayCalculator) {
-		this.webcam = webcam;
-		if (delayCalculator == null) {
-			this.delayCalculator = new DefaultDelayCalculator();
-		} else {
-			this.delayCalculator = delayCalculator;
-		}
-	}
+        double deviceFps = -1;
+        if (device instanceof WebcamDevice.FPSSource) {
+            deviceFps = ((WebcamDevice.FPSSource) device).getFPS();
+        }
 
-	/**
-	 * Start updater.
-	 */
-	public void start() {
+        long duration = t2 - t1;
+        long delay = delayCalculator.calculateDelay(duration, deviceFps);
 
-		if (running.compareAndSet(false, true)) {
+        long delta = duration + 1; // +1 to avoid division by zero
+        if (deviceFps >= 0) {
+            fps = deviceFps;
+        } else {
+            fps = (4 * fps + 1000 / delta) / 5;
+        }
 
-			image.set(new WebcamGetImageTask(Webcam.getDriver(), webcam.getDevice()).getImage());
+        // reschedule task
 
-			executor = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
-			executor.execute(this);
+        if (webcam.isOpen()) {
+            try {
+                executor.schedule(this, delay, TimeUnit.MILLISECONDS);
+            } catch (RejectedExecutionException e) {
+                LOG.trace("Webcam update has been rejected", e);
+            }
+        }
 
-			LOG.debug("Webcam updater has been started");
-		} else {
-			LOG.debug("Webcam updater is already started");
-		}
-	}
+        // notify webcam listeners about the new image available
 
-	/**
-	 * Stop updater.
-	 */
-	public void stop() {
-		if (running.compareAndSet(true, false)) {
+        if (imageOk) {
+            webcam.notifyWebcamImageAcquired(image.get());
+        }
+    }
 
-			executor.shutdown();
-			while (!executor.isTerminated()) {
-				try {
-					executor.awaitTermination(100, TimeUnit.MILLISECONDS);
-				} catch (InterruptedException e) {
-					return;
-				}
-			}
+    /**
+     * Return currently available image. This method will return immediately while it was been
+     * called after camera has been open. In case when there are parallel threads running and there
+     * is a possibility to call this method in the opening time, or before camera has been open at
+     * all, this method will block until webcam return first image. Maximum blocking time will be 10
+     * seconds, after this time method will return null.
+     *
+     * @return Image stored in cache
+     */
+    public BufferedImage getImage() {
 
-			LOG.debug("Webcam updater has been stopped");
-		} else {
-			LOG.debug("Webcam updater is already stopped");
-		}
-	}
+        int i = 0;
+        while (image.get() == null) {
 
-	@Override
-	public void run() {
+            // Just in case if another thread starts calling this method before
+            // updater has been properly started. This will loop while image is
+            // not available.
 
-		if (!running.get()) {
-			return;
-		}
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
 
-		try {
-			tick();
-		} catch (Throwable t) {
-			WebcamExceptionHandler.handle(t);
-		}
-	}
+            // Return null if more than 10 seconds passed (timeout).
 
-	private void tick() {
+            if (i++ > 100) {
+                LOG.error("Image has not been found for more than 10 seconds");
+                return null;
+            }
+        }
 
-		if (!webcam.isOpen()) {
-			return;
-		}
+        imageNew = false;
 
-		// Calculate time required to fetch 1 picture.
+        return image.get();
+    }
 
-		WebcamDriver driver = Webcam.getDriver();
-		WebcamDevice device = webcam.getDevice();
+    protected boolean isImageNew() {
+        return imageNew;
+    }
 
-		assert driver != null;
-		assert device != null;
+    /**
+     * Return current FPS number. It is calculated in real-time on the base of how often camera
+     * serve new image.
+     *
+     * @return FPS number
+     */
+    public double getFPS() {
+        return fps;
+    }
 
-		boolean imageOk = false;
-		long t1 = System.currentTimeMillis();
-		try {
-			image.set(webcam.transform(new WebcamGetImageTask(driver, device).getImage()));
-			imageNew = true;
-			imageOk = true;
-		} catch (WebcamException e) {
-			WebcamExceptionHandler.handle(e);
-		}
-		long t2 = System.currentTimeMillis();
+    /**
+     * Implementation of this interface is responsible for calculating the delay between 2 image
+     * fetching, when the non-blocking (asynchronous) access to the webcam is enabled.
+     */
+    public static interface DelayCalculator {
 
-		double deviceFps = -1;
-		if (device instanceof WebcamDevice.FPSSource) {
-			deviceFps = ((WebcamDevice.FPSSource) device).getFPS();
-		}
+        /**
+         * Calculates delay before the next image will be fetched from the webcam. Must return
+         * number greater or equal 0.
+         *
+         * @param snapshotDuration - duration of taking the last image
+         * @param deviceFps        - current FPS obtained from the device, or -1 if the driver doesn't
+         *                         support it
+         * @return interval (in millis)
+         */
+        long calculateDelay(long snapshotDuration, double deviceFps);
+    }
 
-		long duration = t2 - t1;
-		long delay = delayCalculator.calculateDelay(duration, deviceFps);
+    /**
+     * Default impl of DelayCalculator, based on TARGET_FPS. Returns 0 delay for snapshotDuration
+     * &gt; 20 millis.
+     */
+    public static class DefaultDelayCalculator implements DelayCalculator {
 
-		long delta = duration + 1; // +1 to avoid division by zero
-		if (deviceFps >= 0) {
-			fps = deviceFps;
-		} else {
-			fps = (4 * fps + 1000 / delta) / 5;
-		}
+        @Override
+        public long calculateDelay(long snapshotDuration, double deviceFps) {
+            // Calculate delay required to achieve target FPS.
+            // In some cases it can be less than 0
+            // because camera is not able to serve images as fast as
+            // we would like to. In such case just run with no delay,
+            // so maximum FPS will be the one supported
+            // by camera device in the moment.
 
-		// reschedule task
+            long delay = Math.max((1000 / TARGET_FPS) - snapshotDuration, 0);
+            return delay;
+        }
+    }
 
-		if (webcam.isOpen()) {
-			try {
-				executor.schedule(this, delay, TimeUnit.MILLISECONDS);
-			} catch (RejectedExecutionException e) {
-				LOG.trace("Webcam update has been rejected", e);
-			}
-		}
+    /**
+     * Thread factory for executors used within updater class.
+     *
+     * @author Bartosz Firyn (sarxos)
+     */
+    private static final class UpdaterThreadFactory implements ThreadFactory {
 
-		// notify webcam listeners about the new image available
+        private static final AtomicInteger number = new AtomicInteger(0);
 
-		if (imageOk) {
-			webcam.notifyWebcamImageAcquired(image.get());
-		}
-	}
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, String.format("webcam-updater-thread-%d", number.incrementAndGet()));
+            t.setUncaughtExceptionHandler(WebcamExceptionHandler.getInstance());
+            t.setDaemon(true);
+            return t;
+        }
 
-	/**
-	 * Return currently available image. This method will return immediately while it was been
-	 * called after camera has been open. In case when there are parallel threads running and there
-	 * is a possibility to call this method in the opening time, or before camera has been open at
-	 * all, this method will block until webcam return first image. Maximum blocking time will be 10
-	 * seconds, after this time method will return null.
-	 * 
-	 * @return Image stored in cache
-	 */
-	public BufferedImage getImage() {
-
-		int i = 0;
-		while (image.get() == null) {
-
-			// Just in case if another thread starts calling this method before
-			// updater has been properly started. This will loop while image is
-			// not available.
-
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
-			}
-
-			// Return null if more than 10 seconds passed (timeout).
-
-			if (i++ > 100) {
-				LOG.error("Image has not been found for more than 10 seconds");
-				return null;
-			}
-		}
-
-		imageNew = false;
-
-		return image.get();
-	}
-
-	protected boolean isImageNew() {
-		return imageNew;
-	}
-
-	/**
-	 * Return current FPS number. It is calculated in real-time on the base of how often camera
-	 * serve new image.
-	 * 
-	 * @return FPS number
-	 */
-	public double getFPS() {
-		return fps;
-	}
+    }
 }

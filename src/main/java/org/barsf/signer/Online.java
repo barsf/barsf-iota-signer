@@ -1,33 +1,35 @@
 package org.barsf.signer;
 
 import com.google.zxing.WriterException;
-import org.apache.commons.lang3.StringUtils;
+import org.barsf.signer.exception.CommunicationInterruptedException;
+import org.barsf.signer.exception.FragmentTooLongException;
+import org.barsf.signer.exception.TimeoutException;
+import org.barsf.signer.misc.Base;
 
 public class Online extends Base {
 
-    String previousInput = null;
-
-    public static void main(String[] args) throws WriterException {
+    public static void main(String[] args) throws Exception {
         Online online = new Online();
         online.initial();
+        String message = "1";
         while (true) {
-            online.process();
-            online.sleep();
+            try {
+                message = online.send(message) + 1;
+            } catch (FragmentTooLongException e) {
+                e.printStackTrace();
+            } catch (TimeoutException e) {
+                e.printStackTrace();
+            } catch (CommunicationInterruptedException e) {
+                online.sendResetAndAck();
+            } catch (WriterException e) {
+                e.printStackTrace();
+            }
         }
     }
 
-    public void initial() throws WriterException {
-        screen.display("0");
-    }
-
-    public void process() throws WriterException {
-        String input = camera.scan();
-        if (!StringUtils.equals(input, previousInput)) {
-            System.out.println(input);
-            int command = Integer.parseInt(input);
-            screen.display(String.valueOf(++command));
-            previousInput = input;
-        }
+    public void initial() throws Exception {
+        sendResetAndAck();
+        System.out.println("online initialed");
     }
 
 }
