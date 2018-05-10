@@ -7,9 +7,6 @@ sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
-    maven {
-        url "http://artifact.aspose.com/repo/"
-    }
 }
 
 task fatOfflineJar(type: Jar) {
