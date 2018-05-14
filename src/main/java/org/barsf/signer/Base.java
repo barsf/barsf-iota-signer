@@ -12,9 +12,9 @@ import org.barsf.signer.misc.Fragment;
 
 public abstract class Base {
 
-    private static final int SLEEP_INTERVAL = 500;
-    private static final int READ_RETRY_TIME_OUT_MS = 5 * 1000;
-    private static final int READ_GIVE_UP_OUT_MS = 15 * 1000;
+    private static final int SLEEP_INTERVAL = 250;
+    private static final int TIME_OUT_TRIGGER_TO_RETRY = 5 * 1000;
+    private static final int TIME_OUT_TRIGGER_TO_RESET = 15 * 1000;
 
     private Screen screen;
     private Camera camera;
@@ -94,7 +94,7 @@ public abstract class Base {
             throws WriterException, TimeoutException {
         long firstSent = System.currentTimeMillis();
         while (true) {
-            if (System.currentTimeMillis() - firstSent >= READ_GIVE_UP_OUT_MS) {
+            if (System.currentTimeMillis() - firstSent >= TIME_OUT_TRIGGER_TO_RESET) {
                 throw new TimeoutException();
             }
             write(fragment);
@@ -126,7 +126,7 @@ public abstract class Base {
 
     private Fragment readNext() {
         long beginTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - beginTime < READ_RETRY_TIME_OUT_MS) {
+        while (System.currentTimeMillis() - beginTime < TIME_OUT_TRIGGER_TO_RETRY) {
             String qrCode = camera.scan();
             if (StringUtils.isBlank(qrCode)
                     || qrCode.length() < Fragment.CONTENT_OFFSET
