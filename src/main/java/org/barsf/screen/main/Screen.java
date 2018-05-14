@@ -26,17 +26,17 @@ public class Screen {
         frame.setSize(Toolkit.getDefaultToolkit().getScreenSize());
         frame.setLocation(0, 0);
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(Color.BLACK);
+        frame.getContentPane().setBackground(Color.WHITE);
 
         //   Need to Add
         label = new JLabel();
         label.setSize(800, 400);
         label.setHorizontalAlignment(JLabel.CENTER);
-        label.setForeground(Color.WHITE);
+        label.setForeground(Color.BLACK);
 
         info = new JLabel();
         info.setHorizontalAlignment(JLabel.CENTER);
-        info.setForeground(Color.WHITE);
+        info.setForeground(Color.BLACK);
 
 
         button = new JButton("Next");
@@ -73,7 +73,7 @@ public class Screen {
                 .genBufferedImage();
         ImageIcon ico = new ImageIcon(bi);
         label.setIcon(ico);
-        info.setText(text + " - " + MD5.md5(text, 6));
+        info.setText(text.length() + " - " + text);
     }
 
     private String getRandomString() {

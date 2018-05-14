@@ -71,12 +71,7 @@ public class Camera extends JFrame {// implements Runnable, ThreadFactory
                 }
 
                 LuminanceSource source = new BufferedImageLuminanceSource(image);
-                //BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
                 BinaryBitmap bitmap = new BinaryBitmap(new GlobalHistogramBinarizer(source));
-                int h = bitmap.getHeight();
-                int w = bitmap.getWidth();
-                /*int crop = (w - h) / 2;
-                bitmap = bitmap.crop(crop, 0, w - crop, h);*/
 
                 try {
                     Result r = new MultiFormatReader().decode(bitmap);

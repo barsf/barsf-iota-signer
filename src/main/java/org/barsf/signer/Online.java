@@ -1,10 +1,9 @@
 package org.barsf.signer;
 
 import com.google.zxing.WriterException;
-import org.barsf.signer.exception.CommunicationInterruptedException;
-import org.barsf.signer.exception.FragmentTooLongException;
 import org.barsf.signer.exception.TimeoutException;
-import org.barsf.signer.misc.Base;
+
+import java.util.Random;
 
 public class Online extends Base {
 
@@ -14,22 +13,24 @@ public class Online extends Base {
         String message = "1";
         while (true) {
             try {
-                message = online.send(message) + 1;
-            } catch (FragmentTooLongException e) {
-                e.printStackTrace();
+                message = online.sendAndReceive(message) + Math.abs(new Random().nextInt());
             } catch (TimeoutException e) {
-                e.printStackTrace();
-            } catch (CommunicationInterruptedException e) {
-                online.sendResetAndAck();
+                online.initial();
             } catch (WriterException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public void initial() throws Exception {
-        sendResetAndAck();
-        System.out.println("online initialed");
+    public void initial() {
+        while (true) {
+            try {
+                sendResetAndGetAck();
+                break;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 }

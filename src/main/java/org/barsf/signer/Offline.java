@@ -1,31 +1,38 @@
 package org.barsf.signer;
 
 import com.google.zxing.WriterException;
-import org.apache.commons.lang3.StringUtils;
-import org.barsf.signer.exception.CommunicationInterruptedException;
-import org.barsf.signer.exception.FragmentTooLongException;
+import org.barsf.signer.exception.PeerResetException;
 import org.barsf.signer.exception.TimeoutException;
-import org.barsf.signer.misc.Base;
+
+import java.util.Random;
 
 public class Offline extends Base {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         Offline offline = new Offline();
-        String message = null;
-        while (StringUtils.isEmpty(message)) {
-            message = offline.receive();
-        }
-        message += 1;
+        String message = offline.initial();
         while (true) {
             try {
-                message = offline.send(message) + 1;
-            } catch (FragmentTooLongException e) {
+                try {
+                    message = offline.sendAndReceive(message) + Math.abs(new Random().nextInt());
+                } catch (TimeoutException e) {
+                    e.printStackTrace();
+                } catch (WriterException e) {
+                    e.printStackTrace();
+                } catch (PeerResetException e) {
+                    message = offline.initial();
+                }
+            } catch (Exception e) {
                 e.printStackTrace();
-            } catch (TimeoutException e) {
-                e.printStackTrace();
-            } catch (CommunicationInterruptedException e) {
-                e.printStackTrace();
-            } catch (WriterException e) {
+            }
+        }
+    }
+
+    public String initial() {
+        while (true) {
+            try {
+                return sendAndReceive(null);
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }

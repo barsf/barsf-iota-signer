@@ -2,9 +2,10 @@ package org.barsf.signer.misc;
 
 public enum Flag {
 
-    RESET(0),
-    NEXT(1),
-    LAST(2);
+    NA(0),
+    RESET(1),
+    NEXT(2),
+    LAST(3);
 
     private final int flagCode;
 
