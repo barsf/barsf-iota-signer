@@ -1,8 +1,8 @@
 package org.barsf.camera.ds.dummy;
 
-import org.barsf.camera.webcam.WebcamDevice;
-import org.barsf.camera.webcam.WebcamDiscoverySupport;
-import org.barsf.camera.webcam.WebcamDriver;
+import com.github.sarxos.webcam.WebcamDevice;
+import com.github.sarxos.webcam.WebcamDiscoverySupport;
+import com.github.sarxos.webcam.WebcamDriver;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -1,8 +1,8 @@
 package org.barsf.camera.ds.dummy;
 
-import org.barsf.camera.webcam.WebcamDevice;
-import org.barsf.camera.webcam.WebcamException;
-import org.barsf.camera.webcam.WebcamResolution;
+import com.github.sarxos.webcam.WebcamDevice;
+import com.github.sarxos.webcam.WebcamException;
+import com.github.sarxos.webcam.WebcamResolution;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;

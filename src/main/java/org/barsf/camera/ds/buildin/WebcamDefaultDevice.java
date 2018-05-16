@@ -1,10 +1,9 @@
 package org.barsf.camera.ds.buildin;
 
+import com.github.sarxos.webcam.*;
 import org.barsf.camera.ds.buildin.natives.Device;
 import org.barsf.camera.ds.buildin.natives.DeviceList;
 import org.barsf.camera.ds.buildin.natives.OpenIMAJGrabber;
-import org.barsf.camera.webcam.*;
-import org.barsf.camera.webcam.WebcamDevice.BufferAccess;
 import org.bridj.Pointer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-public class WebcamDefaultDevice implements WebcamDevice, BufferAccess, Runnable, WebcamDevice.FPSSource {
+public class WebcamDefaultDevice implements WebcamDevice, WebcamDevice.BufferAccess, Runnable, WebcamDevice.FPSSource {
 
     /**
      * Logger.

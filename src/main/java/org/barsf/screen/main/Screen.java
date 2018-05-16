@@ -4,7 +4,6 @@ import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import org.barsf.screen.image.ImageType;
-import org.barsf.signer.util.MD5;
 
 import javax.swing.*;
 import java.awt.*;

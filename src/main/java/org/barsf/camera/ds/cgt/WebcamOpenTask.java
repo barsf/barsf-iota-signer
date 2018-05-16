@@ -1,8 +1,8 @@
 package org.barsf.camera.ds.cgt;
 
-import org.barsf.camera.webcam.WebcamDevice;
-import org.barsf.camera.webcam.WebcamDriver;
-import org.barsf.camera.webcam.WebcamTask;
+import com.github.sarxos.webcam.WebcamDevice;
+import com.github.sarxos.webcam.WebcamDriver;
+import com.github.sarxos.webcam.WebcamTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

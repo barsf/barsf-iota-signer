@@ -3,14 +3,14 @@ package org.barsf.signer.exception;
 public class PeerResetException extends Exception {
 
     /**
-     * Constructs a {@code TimeoutException} with no specified detail
+     * Constructs a {@code PeerResetException} with no specified detail
      * message.
      */
     public PeerResetException() {
     }
 
     /**
-     * Constructs a {@code TimeoutException} with the specified detail
+     * Constructs a {@code PeerResetException} with the specified detail
      * message.
      *
      * @param message the detail message

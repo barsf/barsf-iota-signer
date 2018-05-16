@@ -1,12 +1,12 @@
 package org.barsf.camera.ds.buildin;
 
+import com.github.sarxos.webcam.WebcamDevice;
+import com.github.sarxos.webcam.WebcamDiscoverySupport;
+import com.github.sarxos.webcam.WebcamDriver;
+import com.github.sarxos.webcam.WebcamTask;
 import org.barsf.camera.ds.buildin.natives.Device;
 import org.barsf.camera.ds.buildin.natives.DeviceList;
 import org.barsf.camera.ds.buildin.natives.OpenIMAJGrabber;
-import org.barsf.camera.webcam.WebcamDevice;
-import org.barsf.camera.webcam.WebcamDiscoverySupport;
-import org.barsf.camera.webcam.WebcamDriver;
-import org.barsf.camera.webcam.WebcamTask;
 import org.bridj.Pointer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -30,6 +30,7 @@ task fatOnlineJar(type: Jar) {
 
 dependencies {
     compile "com.nativelibs4java:bridj:0.7.0"
+    compile "com.github.sarxos:webcam-capture:0.3.12"
     compile "org.slf4j:slf4j-api:1.7.2"
     compile "com.google.zxing:javase:3.3.2"
     compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'

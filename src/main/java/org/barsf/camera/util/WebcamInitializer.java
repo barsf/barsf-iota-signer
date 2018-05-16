@@ -1,6 +1,6 @@
 package org.barsf.camera.util;
 
-import org.barsf.camera.webcam.WebcamException;
+import com.github.sarxos.webcam.WebcamException;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
