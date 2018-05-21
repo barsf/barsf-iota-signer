@@ -1,217 +1,288 @@
 package org.barsf.signer;
 
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
-import org.apache.commons.lang3.ArrayUtils;
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+import com.google.zxing.qrcode.encoder.Encoder;
+import com.google.zxing.qrcode.encoder.QRCode;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.barsf.camera.main.Camera;
-import org.barsf.screen.main.Screen;
-import org.barsf.signer.exception.PeerResetException;
-import org.barsf.signer.exception.ReadTimeoutException;
+import org.barsf.camera.Camera;
+import org.barsf.screen.Screen;
+import org.barsf.signer.exception.*;
 import org.barsf.signer.misc.Flag;
-import org.barsf.signer.misc.Fragment;
+import org.barsf.signer.misc.Segment;
 
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.TreeMap;
 
-import static org.barsf.signer.misc.Fragment.CONTENT_OFFSET;
+import static org.barsf.screen.Screen.HINTS;
+import static org.barsf.signer.misc.Segment.CONTENT_OFFSET;
 
 
 public abstract class Base {
 
-    private static final int TIME_OUT_UPON_OP = 5 * 1000;
-    private static final int TIME_OUT_UPON_NO_OP = 2000;
-    private static final int TIME_OUT_OVERALL = 10 * 1000;
+    private static final int TIME_OUT_UPON_OP = 10 * 1000;
+    private static final int TIMEOUT_UPON_NONE_OP = 2 * 1000;
 
-    // private static final double LOWER_SCORE = 5 * Math.pow(0.9D, 3.0d);
-    private static final double PROMPT_SCORE = 5 * Math.pow(0.9D, 3.0d) + Math.pow(0.9D, 2.0d) + Math.pow(0.9D, 1.0d) + 1;
+    private static final double SCORE_INCREASE_RATE = 0.99D;
+    private static final double SCORE_INCREASE_RATE_PLUS = 10 - 10 * SCORE_INCREASE_RATE;
+
+    private static final double PROMPT_SCORE = 5 * Math.pow(SCORE_INCREASE_RATE, 3)
+            + SCORE_INCREASE_RATE_PLUS * Math.pow(SCORE_INCREASE_RATE, 2)
+            + SCORE_INCREASE_RATE_PLUS * Math.pow(SCORE_INCREASE_RATE, 1)
+            + SCORE_INCREASE_RATE_PLUS;
+    private static final ArrayList<Integer> LENGTH_LIST = new ArrayList<>();
 
     private Screen screen;
     private Camera camera;
 
-    private Fragment previousFragSent = null;
-    private Fragment previousFragRecv = null;
+
+    private Segment previousSegSent = null;
+    private Segment previousSegRecv = null;
 
     private String previousQrCodeRecv = null;
 
-    private int currentFragLen;
+    private int currentSegmentLenLimit;
     private TreeMap<Integer, Double> lengthScore;
 
-    protected Base() {
+    private Type type = null;
+
+    public enum Type {
+        ONLINE, OFFLINE
+    }
+
+    static {
+        int previousVersion = getVersion(StringUtils.repeat('0', Segment.CONTENT_OFFSET + 1));
+        for (int i = Segment.CONTENT_OFFSET + 1; i <= Segment.MAX_SEGMENT_LENGTH; i++) {
+            int currentVersion = getVersion(StringUtils.repeat('0', i));
+            if (currentVersion != previousVersion) {
+                LENGTH_LIST.add(i - 1);
+                previousVersion = currentVersion;
+            }
+        }
+        if (LENGTH_LIST.get(LENGTH_LIST.size() - 1) != Segment.MAX_SEGMENT_LENGTH) {
+            LENGTH_LIST.add(Segment.MAX_SEGMENT_LENGTH);
+        }
+    }
+
+    protected Base(Type type) {
         this.screen = new Screen();
         this.camera = new Camera();
         lengthScore = new TreeMap<>();
-        int[] fragLengths = new int[]{Fragment.FRAGMENT_MAX_LENGTH};
-        while (true) {
-            int nextLength = fragLengths[0] / 2;
-            if (nextLength >= CONTENT_OFFSET) {
-                fragLengths = ArrayUtils.insert(0, fragLengths, nextLength);
-            } else {
-                break;
-            }
-        }
-        Arrays.stream(fragLengths).forEach(length -> lengthScore.put(length, 5.0D));
-        currentFragLen = lengthScore.firstKey();
+        this.type = type;
+        LENGTH_LIST.forEach(length -> lengthScore.put(length, 5.0D));
+        currentSegmentLenLimit = lengthScore.firstKey();
     }
 
     private void reset() {
-        this.previousFragSent = null;
-        this.previousFragRecv = null;
+        this.previousSegSent = null;
+        this.previousSegRecv = null;
     }
 
     protected String sendAndReceive(String command)
             throws WriterException, PeerResetException, ReadTimeoutException {
-        boolean needNextResponse = true;
+        boolean hasMoreSegment = true;
         StringBuilder fullResponse = new StringBuilder();
-        long startTime = System.currentTimeMillis();
-        while (StringUtils.length(command) > 0 || needNextResponse) {
-            Fragment output = null;
-            int timeout = 0;
+
+        sendAndReceive:
+        while (StringUtils.length(command) > 0 || hasMoreSegment) {
+            Segment request = null;
+            int timeout;
             if (command != null) {
-                output = new Fragment();
-                if (command.length() > currentFragLen - CONTENT_OFFSET) {
-                    output.setFlag(Flag.NEXT);
-                    timeout = TIME_OUT_UPON_NO_OP;
+                request = new Segment();
+                if (command.length() > currentSegmentLenLimit - CONTENT_OFFSET) {
+                    request.setFlag(Flag.NEXT);
+                    timeout = TIMEOUT_UPON_NONE_OP;
                 } else {
-                    output.setFlag(Flag.LAST);
+                    request.setFlag(Flag.LAST);
                     timeout = TIME_OUT_UPON_OP;
                 }
-                output.setFragmentContent(StringUtils.substring(command, 0, currentFragLen - CONTENT_OFFSET));
-                write(output);
+                request.setFragmentContent(StringUtils.substring(command, 0, currentSegmentLenLimit - CONTENT_OFFSET));
+                write(request);
             } else {
                 timeout = TIME_OUT_UPON_OP;
             }
-            Fragment input;
-            try {
-                input = readNext(timeout);
-                startTime = System.currentTimeMillis();
-                if (output != null) {
-                    currentFragLen = nextFragmentMaxLength(output.getFragmentContent().length() + CONTENT_OFFSET, true);
-                }
-            } catch (ReadTimeoutException e) {
-                if (output != null) {
-                    currentFragLen = nextFragmentMaxLength(output.getFragmentContent().length() + CONTENT_OFFSET, false);
-                }
-                if (System.currentTimeMillis() - startTime > TIME_OUT_OVERALL) {
-                    throw e;
-                } else {
-                    continue;
+
+            long startTime = System.currentTimeMillis();
+            Segment response;
+
+            while (true) {
+                try {
+                    response = readNext();
+                    if (request != null) {
+                        currentSegmentLenLimit = nextFragmentMaxLength(request.toQrCode().length(), true);
+                    }
+                    break;
+                } catch (QrCodeNotFundException e) {
+                    if (System.currentTimeMillis() - startTime > 10 * timeout) {
+                        if (this.type == Type.ONLINE) {
+                            throw new ReadTimeoutException();
+                        }
+                    }
+                } catch (PeerNoResponseException e) {
+                    if (System.currentTimeMillis() - startTime > 2 * timeout) {
+                        if (this.type == Type.ONLINE) {
+                            throw new ReadTimeoutException();
+                        }
+                    } else if (System.currentTimeMillis() - startTime > timeout) {
+                        if (request == null
+                                || request.toQrCode().length() <= lengthScore.firstKey()) {
+                            if (this.type == Type.ONLINE) {
+                                throw new ReadTimeoutException();
+                            }
+                        } else {
+                            currentSegmentLenLimit = nextFragmentMaxLength(request.toQrCode().length(), false);
+                            continue sendAndReceive;
+                        }
+                    }
+                } catch (CommunicationInterruptedException e) {
+                    if (System.currentTimeMillis() - startTime > timeout) {
+                        if (this.type == Type.ONLINE) {
+                            throw new ReadTimeoutException();
+                        }
+                    }
                 }
             }
-            switch (input.getFlag()) {
+
+            switch (response.getFlag()) {
                 case RESET:
-                    System.out.println("remote reset");
                     throw new PeerResetException();
                 case LAST:
-                    needNextResponse = false;
-                    fullResponse.append(input.getFragmentContent());
+                    hasMoreSegment = false;
+                    fullResponse.append(response.getFragmentContent());
                     break;
                 case NEXT:
-                    needNextResponse = true;
-                    command = "";
-                    fullResponse.append(input.getFragmentContent());
+                    hasMoreSegment = true;
+                    if (command == null) command = "";
+                    fullResponse.append(response.getFragmentContent());
                     break;
             }
-            if (command != null && output != null) {
-                command = StringUtils.substring(command, output.getFragmentContent().length());
+
+            if (command != null && request != null) {
+                command = StringUtils.substring(command, request.getFragmentContent().length());
             }
         }
         return fullResponse.toString();
     }
 
     protected void sendResetAndGetAck()
-            throws WriterException, ReadTimeoutException {
+            throws Exception {
         System.out.println("sending reset");
         reset();
-        Fragment fragment = new Fragment();
-        fragment.setFlag(Flag.RESET);
-        write(fragment);
-        readNext(TIME_OUT_UPON_NO_OP);
+        Segment segment = new Segment();
+        segment.setFlag(Flag.RESET);
+        write(segment);
+        long startTime = System.currentTimeMillis();
+        while (true) {
+            try {
+                readNext();
+                break;
+            } catch (Exception e) {
+                if (System.currentTimeMillis() - startTime > TIME_OUT_UPON_OP) {
+                    throw e;
+                }
+            }
+        }
     }
 
     protected void sendResetAck() throws WriterException {
         // warning: do NOT invoke reset method
-        Fragment fragment = new Fragment();
-        fragment.setFlag(Flag.LAST);
-        write(fragment);
+        Segment segment = new Segment();
+        segment.setFlag(Flag.LAST);
+        write(segment);
     }
 
-    private void write(Fragment fragment) throws WriterException {
-        if (fragment != null) {
-            fragment.newNonce();
-            if (previousFragRecv != null) {
-                fragment.setPreviousChecksum(previousFragRecv.getChecksum());
+    private void write(Segment segment) throws WriterException {
+        if (segment != null) {
+            segment.newNonce();
+            if (previousSegRecv != null) {
+                segment.setPreviousChecksum(previousSegRecv.getChecksum());
             }
-            screen.display(fragment.toQrCode());
-            previousFragSent = fragment;
+            screen.display(segment.toQrCode());
+            previousSegSent = segment;
         }
     }
 
-    private Fragment readNext(long timeout) throws ReadTimeoutException {
-        long beginTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - beginTime < timeout) {
-            String qrCode = camera.scan();
-            if (StringUtils.isBlank(qrCode)
-                    || qrCode.length() < CONTENT_OFFSET) {
-                continue;
-            }
-            if (StringUtils.equals(previousQrCodeRecv, qrCode)) {
-                continue;
-            }
-            Fragment fragReceived = Fragment.parseQrCode(qrCode);
-            if (previousFragSent == null
-                    || StringUtils.equals(fragReceived.getPreviousChecksum(), previousFragSent.getChecksum())
-                    || fragReceived.getFlag() == Flag.RESET) {
-                previousQrCodeRecv = qrCode;
-                previousFragRecv = fragReceived;
-                return fragReceived;
-            }
+    private Segment readNext()
+            throws QrCodeNotFundException, PeerNoResponseException, CommunicationInterruptedException {
+        String qrCode = camera.scan();
+        if (StringUtils.isBlank(qrCode)
+                || qrCode.length() < CONTENT_OFFSET) {
+            throw new QrCodeNotFundException();
         }
-        throw new ReadTimeoutException();
+        if (StringUtils.equals(previousQrCodeRecv, qrCode)) {
+            throw new PeerNoResponseException();
+        }
+        Segment fragReceived = Segment.parseQrCode(qrCode);
+        if (previousSegSent == null
+                || StringUtils.equals(fragReceived.getPreviousChecksum(), previousSegSent.getChecksum())
+                || fragReceived.getFlag() == Flag.RESET) {
+            previousQrCodeRecv = qrCode;
+            previousSegRecv = fragReceived;
+            return fragReceived;
+        } else {
+            throw new CommunicationInterruptedException();
+        }
     }
 
-    private int onFail(int length) {
-        int newLength = length / 2;
-        int minLength = NumberUtils.max(CONTENT_OFFSET, Fragment.FRAGMENT_MAX_LENGTH / 32);
-        if (newLength < minLength) {
-            newLength = minLength;
+    private int onFail(int theKey) {
+        double theScore = lengthScore.get(theKey);
+        lengthScore.put(theKey, theScore * SCORE_INCREASE_RATE / 2);
+        // System.out.println(theKey + " =-> " + lengthScore.get(theKey));
+        if (lengthScore.lowerKey(theKey) != null) {
+            System.out.println("try to shorter from " + theKey + " to " + lengthScore.lowerKey(theKey));
+            return lengthScore.lowerKey(theKey);
+        } else {
+            return theKey;
         }
-        System.out.println("try to shorter from " + length + " to " + newLength);
-        return newLength;
     }
 
-    private int onSuccess(int length) {
-        while (lengthScore.get(length) != null
-                && lengthScore.get(length) >= PROMPT_SCORE) {
-            length *= 2;
+    private int onSuccess(int theKey) {
+        double score = lengthScore.get(theKey);
+        lengthScore.put(theKey, score * SCORE_INCREASE_RATE + SCORE_INCREASE_RATE_PLUS);
+        // System.out.println(theKey + " -=> " + lengthScore.get(theKey));
+        if (score >= PROMPT_SCORE) {
+            while (lengthScore.higherKey(theKey) != null) {
+                Integer nextKey = lengthScore.higherKey(theKey);
+                double nextScore = lengthScore.get(nextKey);
+                if (nextScore > PROMPT_SCORE) {
+                    theKey = nextKey;
+                } else if (nextScore >= 0.5D) {
+                    return nextKey;
+                } else {
+                    lengthScore.put(nextKey, nextScore * 1.001);
+                    break;
+                }
+            }
         }
-        if (length > Fragment.FRAGMENT_MAX_LENGTH) {
-            length = Fragment.FRAGMENT_MAX_LENGTH;
-        }
-        return length;
+        return theKey;
     }
 
     private int nextFragmentMaxLength(int length, boolean isSuccess) {
-        int mostNearbyPosition = 0;
+        Integer theKey = (lengthScore.containsKey(length) ? length : lengthScore.higherKey(length));
+        theKey = ObjectUtils.defaultIfNull(theKey, lengthScore.lastKey());
+        // lengthScore must contain the key
+        int newLength;
         if (isSuccess) {
-            mostNearbyPosition = lengthScore.keySet().stream().filter(l -> l <= length).max(Comparator.comparing(Integer::valueOf)).orElse(lengthScore.firstKey());
+            newLength = onSuccess(theKey);
+            System.out.println(length + " -=> " + newLength);
         } else {
-            mostNearbyPosition = lengthScore.keySet().stream().filter(l -> l >= length).min(Comparator.comparing(Integer::valueOf)).orElse(lengthScore.lastKey());
+            newLength = onFail(theKey);
+            System.out.println(length + " =-> " + newLength);
         }
-        double score = lengthScore.getOrDefault(mostNearbyPosition, 5.0D) * 0.9D;
-        if (isSuccess) score += 1.0D;
-        lengthScore.put(mostNearbyPosition, score);
-        if (!isSuccess) {
-            return onFail(mostNearbyPosition);
-        } else {
-            return onSuccess(mostNearbyPosition);
-        }
+        return newLength;
     }
 
-    public void printLengthScore() {
-        lengthScore.forEach((k, v) -> System.out.println(k + " : " + v));
-        System.out.println("currentFragLen : " + currentFragLen);
+    private static int getVersion(String text) {
+        try {
+            QRCode code = Encoder.encode(text,
+                    (ErrorCorrectionLevel) HINTS.get(EncodeHintType.ERROR_CORRECTION),
+                    HINTS);
+            return code.getVersion().getVersionNumber();
+        } catch (WriterException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

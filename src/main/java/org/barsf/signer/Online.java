@@ -1,30 +1,35 @@
 package org.barsf.signer;
 
-import com.google.zxing.WriterException;
-import org.barsf.signer.exception.ReadTimeoutException;
+import org.barsf.signer.exception.PeerResetException;
+
+import java.util.Random;
 
 public class Online extends Base {
 
-    public static void main(String[] args) throws Exception {
-        Online online = new Online();
-        online.initial();
-        String message = "1";
+    public Online(Type type) {
+        super(type);
+    }
+
+    public static void main(String[] args) {
+        Online online = new Online(Type.ONLINE);
+        online.reset();
+        String message = "";
+        Random random = new Random();
         while (true) {
             try {
-                message = online.sendAndReceive(message) + 11;
-                if (message.length() % 1373 < 2) {
-                    online.printLengthScore();
-                    System.out.println("message.length() = " + message.length());
-                }
-            } catch (ReadTimeoutException e) {
-                online.initial();
-            } catch (WriterException e) {
+                message = online.sendAndReceive(message) + Math.abs(random.nextInt());
+                System.out.println("message.length() = " + message.length());
+            } catch (PeerResetException e) {
+                System.out.println("ops, this should never happens");
+            } catch (Exception e) {
                 e.printStackTrace();
+                online.reset();
             }
+
         }
     }
 
-    public void initial() {
+    public void reset() {
         while (true) {
             try {
                 sendResetAndGetAck();
