@@ -12,6 +12,8 @@ import org.barsf.screen.Screen;
 import org.barsf.signer.exception.*;
 import org.barsf.signer.misc.Flag;
 import org.barsf.signer.misc.Segment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.TreeMap;
@@ -51,6 +53,8 @@ public abstract class Base {
     public enum Type {
         ONLINE, OFFLINE
     }
+
+    private static final Logger logger = LoggerFactory.getLogger(Base.class);
 
     static {
         int previousVersion = getVersion(StringUtils.repeat('0', Segment.CONTENT_OFFSET + 1));
@@ -168,7 +172,7 @@ public abstract class Base {
 
     protected void sendResetAndGetAck()
             throws Exception {
-        System.out.println("sending reset");
+        logger.info("sending reset");
         reset();
         Segment segment = new Segment();
         segment.setFlag(Flag.RESET);
@@ -229,9 +233,9 @@ public abstract class Base {
     private int onFail(int theKey) {
         double theScore = lengthScore.get(theKey);
         lengthScore.put(theKey, theScore * SCORE_INCREASE_RATE / 2);
-        // System.out.println(theKey + " =-> " + lengthScore.get(theKey));
+        // logger.info("score : {} =-> {}", theKey, lengthScore.get(theKey));
         if (lengthScore.lowerKey(theKey) != null) {
-            System.out.println("try to shorter from " + theKey + " to " + lengthScore.lowerKey(theKey));
+            // logger.info("try to shorter from {} to {}", theKey, lengthScore.lowerKey(theKey));
             return lengthScore.lowerKey(theKey);
         } else {
             return theKey;
@@ -241,7 +245,7 @@ public abstract class Base {
     private int onSuccess(int theKey) {
         double score = lengthScore.get(theKey);
         lengthScore.put(theKey, score * SCORE_INCREASE_RATE + SCORE_INCREASE_RATE_PLUS);
-        // System.out.println(theKey + " -=> " + lengthScore.get(theKey));
+        // logger.info("score : {} -=> {}", theKey, lengthScore.get(theKey));
         if (score >= PROMPT_SCORE) {
             while (lengthScore.higherKey(theKey) != null) {
                 Integer nextKey = lengthScore.higherKey(theKey);
@@ -266,10 +270,10 @@ public abstract class Base {
         int newLength;
         if (isSuccess) {
             newLength = onSuccess(theKey);
-            System.out.println(length + " -=> " + newLength);
+            logger.info("{} -=> {}", length, newLength);
         } else {
             newLength = onFail(theKey);
-            System.out.println(length + " =-> " + newLength);
+            logger.info("{} =-> {}", length, newLength);
         }
         return newLength;
     }

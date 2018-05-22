@@ -1,10 +1,14 @@
 package org.barsf.signer;
 
 import org.barsf.signer.exception.PeerResetException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
 public class Online extends Base {
+
+    private static final Logger logger = LoggerFactory.getLogger(Online.class);
 
     public Online(Type type) {
         super(type);
@@ -18,14 +22,13 @@ public class Online extends Base {
         while (true) {
             try {
                 message = online.sendAndReceive(message) + Math.abs(random.nextInt());
-                System.out.println("message.length() = " + message.length());
+                logger.info("message.length() = {}", message.length());
             } catch (PeerResetException e) {
-                System.out.println("ops, this should never happens");
+                logger.info("ops, this should never happens");
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("", e);
                 online.reset();
             }
-
         }
     }
 
@@ -35,7 +38,7 @@ public class Online extends Base {
                 sendResetAndGetAck();
                 break;
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("", e);
             }
         }
     }
