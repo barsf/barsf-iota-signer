@@ -2,38 +2,49 @@ group 'org.barsf.iota'
 version '0.0.1-SNAPSHOT'
 
 apply plugin: 'java'
+apply plugin: 'war'
 
 sourceCompatibility = 1.8
 
 repositories {
-    maven { url "https://jitpack.io" }
     mavenCentral()
-}
-
-task fatOfflineJar(type: Jar) {
-    manifest {
-        attributes 'Main-Class': 'org.barsf.signer.Offline'
+    maven {
+        url "http://maven.barsf.org:8081/repository/maven-snapshots"
     }
-    baseName = project.name + '-off-all'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
 }
 
-task fatOnlineJar(type: Jar) {
-    manifest {
-        attributes 'Main-Class': 'org.barsf.signer.Online'
+jar {
+    exclude '*.xml'
+}
+
+task deployStandalone(dependsOn: 'jar') {
+    doLast {
+        copy {
+            from jar.archivePath.path
+            into 'deploy/lib'
+        }
+        copy {
+            from configurations.runtime
+            into 'deploy/lib'
+        }
+        copy {
+            from 'src/main/resources'
+            into 'deploy/props'
+        }
+        copy {
+            from 'build.xml'
+            into 'deploy'
+        }
     }
-    baseName = project.name + '-on-all'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
 }
-
 
 dependencies {
-    compile "com.nativelibs4java:bridj:0.7.0"
-    compile "com.github.sarxos:webcam-capture:0.3.12"
-    compile "org.slf4j:slf4j-api:1.7.2"
+    providedCompile "javax.servlet:javax.servlet-api:3.1.0"
     compile "com.google.zxing:javase:3.3.2"
-    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile "com.github.sarxos:webcam-capture:0.3.12"
+    compile "org.apache.commons:commons-lang3:3.7"
+    compile "org.barsf.iota:barsf-iota-lib:0.0.1-SNAPSHOT"
+    compile "commons-io:commons-io:2.6"
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.5'
+
 }
