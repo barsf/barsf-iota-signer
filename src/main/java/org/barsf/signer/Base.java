@@ -35,25 +35,6 @@ public abstract class Base {
             + SCORE_INCREASE_RATE_PLUS * Math.pow(SCORE_INCREASE_RATE, 1)
             + SCORE_INCREASE_RATE_PLUS;
     private static final ArrayList<Integer> LENGTH_LIST = new ArrayList<>();
-
-    private Screen screen;
-    private Camera camera;
-
-
-    private Segment previousSegSent = null;
-    private Segment previousSegRecv = null;
-
-    private String previousQrCodeRecv = null;
-
-    private int currentSegmentLenLimit;
-    private TreeMap<Integer, Double> lengthScore;
-
-    private Type type = null;
-
-    public enum Type {
-        ONLINE, OFFLINE
-    }
-
     private static final Logger logger = LoggerFactory.getLogger(Base.class);
 
     static {
@@ -70,13 +51,33 @@ public abstract class Base {
         }
     }
 
-    protected Base(Type type) {
+    private Screen screen;
+    private Camera camera;
+    private Segment previousSegSent = null;
+    private Segment previousSegRecv = null;
+    private String previousQrCodeRecv = null;
+    private int currentSegmentLenLimit;
+    private TreeMap<Integer, Double> lengthScore;
+    private Mode mode = null;
+
+    protected Base(Mode mode) {
         this.screen = new Screen();
         this.camera = new Camera();
         lengthScore = new TreeMap<>();
-        this.type = type;
+        this.mode = mode;
         LENGTH_LIST.forEach(length -> lengthScore.put(length, 5.0D));
         currentSegmentLenLimit = lengthScore.firstKey();
+    }
+
+    private static int getVersion(String text) {
+        try {
+            QRCode code = Encoder.encode(text,
+                    (ErrorCorrectionLevel) HINTS.get(EncodeHintType.ERROR_CORRECTION),
+                    HINTS);
+            return code.getVersion().getVersionNumber();
+        } catch (WriterException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void reset() {
@@ -85,7 +86,7 @@ public abstract class Base {
     }
 
     protected String sendAndReceive(String command)
-            throws WriterException, PeerResetException, ReadTimeoutException {
+            throws PeerResetException, ReadTimeoutException, IncompatibleVersionException {
         boolean hasMoreSegment = true;
         StringBuilder fullResponse = new StringBuilder();
 
@@ -115,24 +116,27 @@ public abstract class Base {
                 try {
                     response = readNext();
                     if (request != null) {
+                        if (!StringUtils.equals(request.getVersion(), response.getVersion())) {
+                            throw new IncompatibleVersionException();
+                        }
                         currentSegmentLenLimit = nextFragmentMaxLength(request.toQrCode().length(), true);
                     }
                     break;
                 } catch (QrCodeNotFundException e) {
                     if (System.currentTimeMillis() - startTime > 10 * timeout) {
-                        if (this.type == Type.ONLINE) {
+                        if (this.mode == Mode.ONLINE) {
                             throw new ReadTimeoutException();
                         }
                     }
                 } catch (PeerNoResponseException e) {
                     if (System.currentTimeMillis() - startTime > 2 * timeout) {
-                        if (this.type == Type.ONLINE) {
+                        if (this.mode == Mode.ONLINE) {
                             throw new ReadTimeoutException();
                         }
                     } else if (System.currentTimeMillis() - startTime > timeout) {
                         if (request == null
                                 || request.toQrCode().length() <= lengthScore.firstKey()) {
-                            if (this.type == Type.ONLINE) {
+                            if (this.mode == Mode.ONLINE) {
                                 throw new ReadTimeoutException();
                             }
                         } else {
@@ -142,7 +146,7 @@ public abstract class Base {
                     }
                 } catch (CommunicationInterruptedException e) {
                     if (System.currentTimeMillis() - startTime > timeout) {
-                        if (this.type == Type.ONLINE) {
+                        if (this.mode == Mode.ONLINE) {
                             throw new ReadTimeoutException();
                         }
                     }
@@ -174,6 +178,7 @@ public abstract class Base {
             throws Exception {
         logger.info("sending reset");
         reset();
+        screen.toFront();
         Segment segment = new Segment();
         segment.setFlag(Flag.RESET);
         write(segment);
@@ -190,20 +195,26 @@ public abstract class Base {
         }
     }
 
-    protected void sendResetAck() throws WriterException {
+    protected void sendAck() {
         // warning: do NOT invoke reset method
+        logger.info("sending ack");
+        screen.toFront();
         Segment segment = new Segment();
         segment.setFlag(Flag.LAST);
         write(segment);
     }
 
-    private void write(Segment segment) throws WriterException {
+    private void write(Segment segment) {
         if (segment != null) {
             segment.newNonce();
             if (previousSegRecv != null) {
                 segment.setPreviousChecksum(previousSegRecv.getChecksum());
             }
-            screen.display(segment.toQrCode());
+            try {
+                screen.display(segment.toQrCode());
+            } catch (WriterException e) {
+                logger.error("ops, this should never happens", e);
+            }
             previousSegSent = segment;
         }
     }
@@ -278,15 +289,11 @@ public abstract class Base {
         return newLength;
     }
 
-    private static int getVersion(String text) {
-        try {
-            QRCode code = Encoder.encode(text,
-                    (ErrorCorrectionLevel) HINTS.get(EncodeHintType.ERROR_CORRECTION),
-                    HINTS);
-            return code.getVersion().getVersionNumber();
-        } catch (WriterException e) {
-            throw new RuntimeException(e);
-        }
+    public Mode getMode() {
+        return mode;
     }
 
+    public enum Mode {
+        ONLINE, OFFLINE
+    }
 }

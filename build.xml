@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project name="barsf-iota-signer" basedir=".">
+
+    <path id="classpath">
+        <fileset dir="lib">
+            <include name="**/*.jar"/>
+        </fileset>
+        <path path="props"/>
+    </path>
+
+    <target name="online" description="Run Online">
+        <java classpathref="classpath" classname="org.barsf.signer.Online"
+              fork="true" spawn="true" maxmemory="2048m">
+            <arg value=""/>
+        </java>
+    </target>
+
+    <target name="offline" description="Run Offline">
+        <java classpathref="classpath" classname="org.barsf.MainApplication"
+              fork="true" spawn="true" maxmemory="4096m" >
+            <jvmarg value="-Djava.awt.headless=false"/>
+            <arg value="offline"/>
+            <arg value="seed.key"/>
+            <arg value="seed.merkle"/>
+        </java>
+    </target>
+
+</project>

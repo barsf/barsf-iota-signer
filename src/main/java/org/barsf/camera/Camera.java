@@ -13,9 +13,8 @@ import java.util.Vector;
 
 public class Camera {
 
-    private static Webcam webcam = null;
-    private String previous = null;
     private static final HashMap<DecodeHintType, Object> HINTS = new HashMap<>();
+    private static Webcam webcam = null;
 
     static {
         Vector<BarcodeFormat> decodeFormats = new Vector<>();
@@ -23,6 +22,8 @@ public class Camera {
         HINTS.put(DecodeHintType.POSSIBLE_FORMATS, decodeFormats);
         HINTS.put(DecodeHintType.CHARACTER_SET, "UTF8");
     }
+
+    private String previous = null;
 
     public Camera() {
         super();

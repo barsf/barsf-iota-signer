@@ -20,18 +20,19 @@ public class Screen {
     private static final MatrixToImageConfig DEFAULT_MATRIX_TO_IMAGE_CONFIG = new MatrixToImageConfig();
     private static final QRCodeWriter QR_CODE_WRITER = new QRCodeWriter();
 
-    private JLabel imageLabel;
-    private JLabel infoLabel;
-    private int imageSize;
-
     static {
         HINTS.put(EncodeHintType.CHARACTER_SET, "UTF-8");
         HINTS.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.L);
         HINTS.put(EncodeHintType.MARGIN, 0);
     }
 
+    private JFrame frame;
+    private JLabel imageLabel;
+    private JLabel infoLabel;
+    private int imageSize;
+
     public Screen() {
-        JFrame frame = new JFrame();
+        frame = new JFrame();
 
         frame.setSize(Toolkit.getDefaultToolkit().getScreenSize());
         frame.setLocation(2, 2);
@@ -61,6 +62,14 @@ public class Screen {
         BufferedImage bi = MatrixToImageWriter.toBufferedImage(qrCode, DEFAULT_MATRIX_TO_IMAGE_CONFIG);
         ImageIcon ico = new ImageIcon(bi);
         imageLabel.setIcon(ico);
+        imageLabel.repaint();
         infoLabel.setText(text.length() + " - " + text);
+    }
+
+    public void toFront() {
+        EventQueue.invokeLater(() -> {
+            frame.toFront();
+            frame.repaint();
+        });
     }
 }
