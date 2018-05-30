@@ -86,7 +86,7 @@ public abstract class Base {
     }
 
     protected String sendAndReceive(String command)
-            throws PeerResetException, ReadTimeoutException, IncompatibleVersionException {
+            throws PeerResetException, ReadTimeoutException, IncompatibleVersionException, PeerProcessException {
         boolean hasMoreSegment = true;
         StringBuilder fullResponse = new StringBuilder();
 
@@ -156,6 +156,11 @@ public abstract class Base {
             switch (response.getFlag()) {
                 case RESET:
                     throw new PeerResetException();
+                case ERR:
+                    if (this.mode == Mode.ONLINE) {
+                        throw new PeerProcessException();
+                    }
+                    break;
                 case LAST:
                     hasMoreSegment = false;
                     fullResponse.append(response.getFragmentContent());
@@ -201,6 +206,14 @@ public abstract class Base {
         screen.toFront();
         Segment segment = new Segment();
         segment.setFlag(Flag.LAST);
+        write(segment);
+    }
+
+    protected void sendErr() {
+        // warning: do NOT invoke reset method
+        logger.info("sending err");
+        Segment segment = new Segment();
+        segment.setFlag(Flag.ERR);
         write(segment);
     }
 

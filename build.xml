@@ -20,8 +20,6 @@
               fork="true" spawn="true" maxmemory="4096m" >
             <jvmarg value="-Djava.awt.headless=false"/>
             <arg value="offline"/>
-            <arg value="seed.key"/>
-            <arg value="seed.merkle"/>
         </java>
     </target>
 

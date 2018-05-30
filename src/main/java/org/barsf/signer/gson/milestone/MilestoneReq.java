@@ -1,11 +1,13 @@
-package org.barsf.signer.gson.merkle;
+package org.barsf.signer.gson.milestone;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.google.api.client.util.Key;
 import org.barsf.signer.gson.BaseReq;
 
-@JsonIgnoreProperties(ignoreUnknown=true)
-public class MerkleReq extends BaseReq {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class MilestoneReq extends BaseReq {
+
+    public static final String COMMAND = "milestone";
 
     @Key("hash")
     private String hash;

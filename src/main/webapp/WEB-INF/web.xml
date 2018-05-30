@@ -12,14 +12,6 @@
             <param-name>mode</param-name>
             <param-value>online</param-value>
         </init-param>
-        <init-param>
-            <param-name>keyFilePath</param-name>
-            <param-value></param-value>
-        </init-param>
-        <init-param>
-            <param-name>merkleFilePath</param-name>
-            <param-value></param-value>
-        </init-param>
         <load-on-startup>1</load-on-startup>
     </servlet>
 

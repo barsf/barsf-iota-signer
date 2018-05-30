@@ -1,9 +1,10 @@
-package org.barsf.signer.misc;
+package org.barsf.signer.qrcode;
 
 public enum Command {
 
-    SIGN_TRANSACTIONS(0),
-    SIGN_MILESTONE(1);
+    ADDRESS(0),
+    SIGN_TRANSACTIONS(1),
+    SIGN_MILESTONE(2);
 
     private final int commandCode;
 

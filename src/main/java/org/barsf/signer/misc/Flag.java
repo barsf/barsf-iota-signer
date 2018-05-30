@@ -4,9 +4,9 @@ public enum Flag {
 
     NA(0),
     RESET(1),
-    RESETACK(2),
-    NEXT(3),
-    LAST(4);
+    NEXT(2),
+    LAST(3),
+    ERR(4);
 
     private final int flagCode;
 
