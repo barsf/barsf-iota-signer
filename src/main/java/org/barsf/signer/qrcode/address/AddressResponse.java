@@ -11,9 +11,9 @@ import java.util.List;
 
 public class AddressResponse extends BaseTransact {
 
-    public static final Command COMMAND = Command.ADDRESS;
+    private static final Command COMMAND = Command.ADDRESS;
 
-    public static final int ADDRESS_LENGTH = Unsigned.u27To10(Unsigned.trytes(StringUtils.repeat('M', 81))).toString().length();
+    private static final int ADDRESS_LENGTH = Unsigned.u27To10(Unsigned.trytes(StringUtils.repeat('M', 81))).toString().length();
 
     private List<BigInteger> addresses;
 

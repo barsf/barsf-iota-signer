@@ -18,6 +18,8 @@ import org.barsf.signer.qrcode.address.AddressRequest;
 import org.barsf.signer.qrcode.address.AddressResponse;
 import org.barsf.signer.qrcode.milestone.MileStoneRequest;
 import org.barsf.signer.qrcode.milestone.MileStoneResponse;
+import org.barsf.signer.qrcode.sign.SignRequest;
+import org.barsf.signer.qrcode.sign.SignResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,13 +89,20 @@ public class Offline extends Base {
                     ((MileStoneResponse) response).setPath(Unsigned.u27To10(Unsigned.trytes(path)));
                     break;
                 case ADDRESS:
-                    AddressRequest request = new AddressRequest();
-                    request.parseFrom(input);
+                    AddressRequest addrRequest = new AddressRequest();
+                    addrRequest.parseFrom(input);
                     response = new AddressResponse();
                     List<BigInteger> addresses = new ArrayList<>();
-                    address(request.getSeedIndex(), request.getFromIndex(), request.getToIndex(), request.getSecurity())
+                    address(addrRequest.getSeedIndex(), addrRequest.getFromIndex(), addrRequest.getToIndex(), addrRequest.getSecurity())
                             .forEach(address -> addresses.add(Unsigned.u27To10(Unsigned.trytes(address))));
                     ((AddressResponse) response).setAddresses(addresses);
+                    break;
+                case SIGN_TRANSACTIONS:
+                    SignRequest signRequest = new SignRequest();
+                    signRequest.parseFrom(input);
+                    sign = sign(signRequest.getSeedIndex(), signRequest.getAddressIndex(), signRequest.getSecurity(), signRequest.getContent());
+                    response = new SignResponse();
+                    ((SignResponse) response).setSignature(Unsigned.u27To10(Unsigned.trytes(sign)));
                     break;
                 default:
                     throw new RuntimeException("unsupported command " + command);
@@ -127,6 +136,14 @@ public class Offline extends Base {
             returnValue.add(addr);
         }
         return returnValue;
+    }
+
+    private String sign(int seedIndex, int addressIndex, int security, BigInteger unsignTrytes) {
+        Sponge sponge = SpongeFactory.create(SpongeFactory.Mode.KERL);
+        int[] privateKey = Key.keyFromSeed(seeds[seedIndex], addressIndex, Security.values()[security - 1], sponge);
+        String trytes = Unsigned.trytes(Unsigned.u10To27(unsignTrytes));
+        int[] signTrits = Hash.sign(Signed.trytes(trytes), privateKey, sponge);
+        return Signed.trytes(Signed.s3to27(signTrits));
     }
 
     public String[] getSeeds() {

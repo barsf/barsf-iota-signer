@@ -6,9 +6,12 @@ import org.barsf.signer.qrcode.address.AddressRequest;
 import org.barsf.signer.qrcode.address.AddressResponse;
 import org.barsf.signer.qrcode.milestone.MileStoneRequest;
 import org.barsf.signer.qrcode.milestone.MileStoneResponse;
+import org.barsf.signer.qrcode.sign.SignRequest;
+import org.barsf.signer.qrcode.sign.SignResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Online extends Base {
@@ -49,6 +52,18 @@ public class Online extends Base {
         request.setToIndex(toIndex);
         request.setSecurity(security);
         AddressResponse response = new AddressResponse();
+        response.parseFrom(transact(request.toQrCode()));
+        return response;
+    }
+
+    public SignResponse sign(int seedIndex, int addressIndex, int security, String hashTrytes)
+            throws PeerProcessException, ReadTimeoutException, SystemBusyException, IncompatibleVersionException, PeerResetException {
+        SignRequest request = new SignRequest();
+        request.setSeedIndex(seedIndex);
+        request.setAddressIndex(addressIndex);
+        request.setSecurity(security);
+        request.setContent(Unsigned.u27To10(Unsigned.trytes(hashTrytes)));
+        SignResponse response = new SignResponse();
         response.parseFrom(transact(request.toQrCode()));
         return response;
     }

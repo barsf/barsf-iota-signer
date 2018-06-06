@@ -9,11 +9,11 @@ import java.math.BigInteger;
 
 public class MileStoneResponse extends BaseTransact {
 
-    public static final Command COMMAND = Command.SIGN_MILESTONE;
+    private static final Command COMMAND = Command.SIGN_MILESTONE;
 
-    public static final int MS_SIGN_OFFSET = 0;
-    public static final int MS_SIGN_LENGTH = Unsigned.u27To10(Unsigned.trytes(StringUtils.repeat('M', 2187))).toString().length();
-    public static final int MS_PATH_OFFSET = MS_SIGN_OFFSET + MS_SIGN_LENGTH;
+    private static final int MS_SIGN_OFFSET = 0;
+    private static final int MS_SIGN_LENGTH = Unsigned.u27To10(Unsigned.trytes(StringUtils.repeat('M', 2187))).toString().length();
+    private static final int MS_PATH_OFFSET = MS_SIGN_OFFSET + MS_SIGN_LENGTH;
 
     private BigInteger sign;
     private BigInteger path;

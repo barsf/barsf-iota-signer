@@ -8,16 +8,16 @@ import java.text.NumberFormat;
 
 public class MileStoneRequest extends BaseTransact {
 
-    public static final Command COMMAND = Command.SIGN_MILESTONE;
+    private static final Command COMMAND = Command.SIGN_MILESTONE;
 
-    public static final int TREE_INDEX_OFFSET = COMMAND_OFFSET + COMMAND_LENGTH;
-    public static final int TREE_INDEX_LENGTH = 2;
-    public static final int NODE_INDEX_OFFSET = TREE_INDEX_OFFSET + TREE_INDEX_LENGTH;
-    public static final int NODE_INDEX_LENGTH = String.valueOf(0x01 << 22).length();
-    public static final int CONTENT_TRYTES_OFFSET = NODE_INDEX_OFFSET + NODE_INDEX_LENGTH;
+    private static final int TREE_INDEX_OFFSET = COMMAND_OFFSET + COMMAND_LENGTH;
+    private static final int TREE_INDEX_LENGTH = 2;
+    private static final int NODE_INDEX_OFFSET = TREE_INDEX_OFFSET + TREE_INDEX_LENGTH;
+    private static final int NODE_INDEX_LENGTH = String.valueOf(0x01 << 22).length();
+    private static final int CONTENT_TRYTES_OFFSET = NODE_INDEX_OFFSET + NODE_INDEX_LENGTH;
 
-    public static final NumberFormat TREE_INDEX_FORMAT = NumberFormat.getInstance();
-    public static final NumberFormat NODE_INDEX_FORMAT = NumberFormat.getInstance();
+    private static final NumberFormat TREE_INDEX_FORMAT = NumberFormat.getInstance();
+    private static final NumberFormat NODE_INDEX_FORMAT = NumberFormat.getInstance();
 
     static {
         TREE_INDEX_FORMAT.setMinimumIntegerDigits(TREE_INDEX_LENGTH);

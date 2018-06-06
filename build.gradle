@@ -10,6 +10,10 @@ repositories {
     mavenCentral()
     maven {
         url "http://maven.barsf.org:8081/repository/maven-snapshots"
+        credentials {
+            username = ""
+            password = ""
+        }
     }
 }
 
@@ -38,13 +42,18 @@ task deployStandalone(dependsOn: 'jar') {
     }
 }
 
+configurations.all {
+    resolutionStrategy.cacheDynamicVersionsFor 4, 'hours'
+    resolutionStrategy.cacheChangingModulesFor 4, 'hours'
+}
+
 dependencies {
     providedCompile "javax.servlet:javax.servlet-api:3.1.0"
     compile "com.google.zxing:javase:3.3.2"
     compile "com.github.sarxos:webcam-capture:0.3.12"
     compile "org.apache.commons:commons-lang3:3.7"
     compile "org.barsf.iota:barsf-iota-lib:0.0.1-SNAPSHOT"
+    compile "org.barsf.iota:barsf-signer-protocol:0.0.1-SNAPSHOT"
     compile "commons-io:commons-io:2.6"
-    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.5'
 
 }

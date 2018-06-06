@@ -7,19 +7,19 @@ import java.text.NumberFormat;
 
 public class AddressRequest extends BaseTransact {
 
-    public static final Command COMMAND = Command.ADDRESS;
+    private static final Command COMMAND = Command.ADDRESS;
 
-    public static final int SEED_INDEX_OFFSET = COMMAND_OFFSET + COMMAND_LENGTH;
-    public static final int SEED_INDEX_LENGTH = 2;
-    public static final int FROM_INDEX_OFFSET = SEED_INDEX_OFFSET + SEED_INDEX_LENGTH;
-    public static final int FROM_INDEX_LENGTH = 10;
-    public static final int TO_INDEX_OFFSET = FROM_INDEX_OFFSET + FROM_INDEX_LENGTH;
-    public static final int TO_INDEX_LENGTH = 10;
-    public static final int SECURITY_OFFSET = TO_INDEX_OFFSET + TO_INDEX_LENGTH;
-    public static final int SECURITY_LENGTH = 1;
+    private static final int SEED_INDEX_OFFSET = COMMAND_OFFSET + COMMAND_LENGTH;
+    private static final int SEED_INDEX_LENGTH = 2;
+    private static final int FROM_INDEX_OFFSET = SEED_INDEX_OFFSET + SEED_INDEX_LENGTH;
+    private static final int FROM_INDEX_LENGTH = 10;
+    private static final int TO_INDEX_OFFSET = FROM_INDEX_OFFSET + FROM_INDEX_LENGTH;
+    private static final int TO_INDEX_LENGTH = 10;
+    private static final int SECURITY_OFFSET = TO_INDEX_OFFSET + TO_INDEX_LENGTH;
+    private static final int SECURITY_LENGTH = 1;
 
-    public static final NumberFormat SEED_INDEX_FORMAT = NumberFormat.getInstance();
-    public static final NumberFormat FROM_TO_INDEX_FORMAT = NumberFormat.getInstance();
+    private static final NumberFormat SEED_INDEX_FORMAT = NumberFormat.getInstance();
+    private static final NumberFormat FROM_TO_INDEX_FORMAT = NumberFormat.getInstance();
 
     static {
         SEED_INDEX_FORMAT.setMinimumIntegerDigits(SEED_INDEX_LENGTH);
